@@ -1,3 +1,4 @@
+import React from "react";
 import { X, Mail, Clock, User, Edit, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

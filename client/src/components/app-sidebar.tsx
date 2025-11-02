@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Home, Upload, Settings, Database, Building2, Plus } from "lucide-react";
 import { Link, useLocation } from "wouter";

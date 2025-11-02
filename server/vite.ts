@@ -24,6 +24,8 @@ export async function setupVite(app: Express, server: Server) {
   // prevent bundling dev-only deps (vite, @vitejs/plugin-react) into prod.
   const { createServer: createViteServer, createLogger } = await import("vite");
   const { nanoid } = await import("nanoid");
+  // Load React plugin only in development
+  const { default: react } = await import("@vitejs/plugin-react");
 
   const serverOptions = {
     middlewareMode: true,
@@ -37,6 +39,12 @@ export async function setupVite(app: Express, server: Server) {
     configFile: false,
     root: path.resolve(import.meta.dirname, "..", "client"),
     appType: "custom",
+    // Ensure JSX uses the automatic runtime so `import React` is not required
+    esbuild: {
+      jsx: "automatic",
+      jsxImportSource: "react",
+    },
+    plugins: [react()],
     resolve: {
       alias: {
         "@": path.resolve(import.meta.dirname, "..", "client", "src"),

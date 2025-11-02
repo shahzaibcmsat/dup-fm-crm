@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useEffect } from "react";
 import { X, Send, Loader2 } from "lucide-react";
 import {
