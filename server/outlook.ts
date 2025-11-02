@@ -135,170 +135,106 @@ export async function getGraphClient(): Promise<Client | null> {
 
 // Send email using Microsoft Graph API
 export async function sendEmail(
-  to: string, 
-  subject: string, 
-  body: string, 
+  to: string,
+  subject: string,
+  body: string,
   fromEmail?: string,
-  inReplyTo?: string // Message ID to reply to for threading
-): Promise<{ success: boolean; message: string; details?: any; messageId?: string; conversationId?: string }> {
-  console.log('\n📧 ========== EMAIL SEND ATTEMPT ==========');
-  console.log('To:', to);
-  console.log('Subject:', subject);
-  console.log('From:', fromEmail || process.env.EMAIL_FROM_ADDRESS);
-  if (inReplyTo) {
-    console.log('🧵 In-Reply-To:', inReplyTo);
-  }
-  
-  const client = await getGraphClient();
+  inReplyTo?: string
+): Promise<{
+  success: boolean;
+  message: string;
+  details?: any;
+  messageId?: string;
+  conversationId?: string;
+}> {
+  console.log("\n📧 ========== EMAIL SEND ATTEMPT ==========");
+  console.log("To:", to);
+  console.log("Subject:", subject);
+  console.log("From:", fromEmail || process.env.EMAIL_FROM_ADDRESS);
+  if (inReplyTo) console.log("🧵 In-Reply-To:", inReplyTo);
 
+  const client = await getGraphClient();
   if (!client) {
-    // Fallback to console logging if Graph is not configured
-    console.log('⚠️  No Microsoft Graph client available - logging email instead');
-    console.log('=== EMAIL SENT (No Microsoft Graph configured) ===');
-    console.log(`From: ${fromEmail || 'noreply@example.com'}`);
+    console.log("⚠️  No Microsoft Graph client available - logging email instead");
+    console.log("=== EMAIL SENT (No Microsoft Graph configured) ===");
+    console.log(`From: ${fromEmail || "noreply@example.com"}`);
     console.log(`To: ${to}`);
     console.log(`Subject: ${subject}`);
     console.log(`Body: ${body}`);
-    console.log('===================================================\n');
-    
-    return {
-      success: true,
-      message: 'Email logged (Microsoft Graph not configured)',
-      details: { to, subject, body }
-    };
+    console.log("===================================================\n");
+    return { success: true, message: "Email logged (Microsoft Graph not configured)", details: { to, subject, body } };
   }
 
   try {
-    // For app-only access, you need to specify the user to send from
     const sendFromUser = fromEmail || process.env.EMAIL_FROM_ADDRESS;
-    
-    if (!sendFromUser) {
-      throw new Error('EMAIL_FROM_ADDRESS must be set when using app-only access');
-    }
+    if (!sendFromUser) throw new Error("EMAIL_FROM_ADDRESS must be set when using app-only access");
 
-    console.log('📤 Attempting to send via Microsoft Graph...');
-    console.log('   Using sender:', sendFromUser);
-
-    const sendMail: any = {
-      message: {
-        subject: subject,
-        body: {
-          contentType: 'Text',
-          content: body
-        },
-        toRecipients: [
-          {
-            emailAddress: {
-              address: to
-            }
-          }
-        ]
-      },
-      saveToSentItems: true  // Save to sent items for proper delivery
-    };
-
-    // Add threading headers if replying to an existing message
+    // If we have a message ID, try to send as a reply via createReply
     if (inReplyTo) {
-      console.log('🧵 Adding email threading headers');
-      // Try to get the original message to reply to it properly
       try {
         const originalMessage = await client.api(`/users/${sendFromUser}/messages/${inReplyTo}`).get();
-        
-        // Use the reply endpoint for proper threading
-        console.log('   Using createReply for proper threading');
         const reply = await client.api(`/users/${sendFromUser}/messages/${inReplyTo}/createReply`).post({});
-        
-        // Update the reply with our content
-        await client.api(`/users/${sendFromUser}/messages/${reply.id}`).patch({
-          body: {
-            contentType: 'Text',
-            content: body
-          }
-        });
-        
-        // Send the reply
+        await client.api(`/users/${sendFromUser}/messages/${reply.id}`).patch({ body: { contentType: "Text", content: body } });
         await client.api(`/users/${sendFromUser}/messages/${reply.id}/send`).post({});
-        
-        console.log('✅ Email sent as reply via Microsoft Graph!');
-        console.log('   Message ID:', reply.id);
-        console.log('   Conversation ID:', reply.conversationId || originalMessage.conversationId);
-        
         return {
           success: true,
-          message: 'Email sent as reply via Microsoft Graph',
+          message: "Email sent as reply via Microsoft Graph",
           details: { to, subject, from: sendFromUser },
           messageId: reply.id,
-          conversationId: reply.conversationId || originalMessage.conversationId
+          conversationId: reply.conversationId || originalMessage.conversationId,
         };
-      } catch (replyError) {
-        console.warn('⚠️ Could not use createReply, sending as new message with headers:', replyError);
-        // Fall back to sending with custom headers
-        sendMail.message.internetMessageHeaders = [
-          {
-            name: 'In-Reply-To',
-            value: `<${inReplyTo}>`
-          },
-          {
-            name: 'References',
-            value: `<${inReplyTo}>`
-          }
-        ];
+      } catch (replyErr) {
+        console.warn("⚠️ createReply failed, sending as a new message without threading headers:", (replyErr as any)?.message || replyErr);
       }
     }
 
-    // For app-only permissions, use /users/{id}/sendMail endpoint
-    const response = await client.api(`/users/${sendFromUser}/sendMail`).post(sendMail);
+    // Send as a new message (no forbidden headers)
+    const sendMail = {
+      message: {
+        subject,
+        body: { contentType: "Text", content: body },
+        toRecipients: [{ emailAddress: { address: to } }],
+      },
+      saveToSentItems: true,
+    };
 
-    // Get the sent message details from sent items
+    await client.api(`/users/${sendFromUser}/sendMail`).post(sendMail);
+
+    // Try to fetch the most recent sent message to get IDs
     let messageId: string | undefined;
     let conversationId: string | undefined;
-    
     try {
-      // Wait a moment for the message to be saved
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Get the most recent sent message
-      const sentMessages = await client.api(`/users/${sendFromUser}/mailFolders/SentItems/messages`)
+      await new Promise((r) => setTimeout(r, 1000));
+      const sentMessages = await client
+        .api(`/users/${sendFromUser}/mailFolders/SentItems/messages`)
         .top(1)
-        .orderby('sentDateTime desc')
+        .orderby("sentDateTime desc")
         .get();
-      
-      if (sentMessages.value && sentMessages.value.length > 0) {
+      if (sentMessages.value?.length > 0) {
         messageId = sentMessages.value[0].id;
         conversationId = sentMessages.value[0].conversationId;
-        console.log('📬 Message ID:', messageId);
-        console.log('🧵 Conversation ID:', conversationId);
       }
-    } catch (error) {
-      console.warn('⚠️ Could not retrieve sent message details:', error);
+    } catch (e) {
+      console.warn("⚠️ Could not retrieve sent message details:", (e as any)?.message || e);
     }
-
-    console.log('✅ Email sent successfully via Microsoft Graph!');
-    console.log('   Response: Email sent');
-    console.log('=========================================\n');
 
     return {
       success: true,
-      message: 'Email sent via Microsoft Graph',
+      message: "Email sent via Microsoft Graph",
       details: { to, subject, from: sendFromUser },
       messageId,
-      conversationId
+      conversationId,
     };
   } catch (error: any) {
-    console.error('❌ Failed to send email via Microsoft Graph');
-    console.error('   Error code:', error.code);
-    console.error('   Error message:', error.message);
-    console.error('   Status code:', error.statusCode);
-    
-    // Check if it's a mailbox issue
-    if (error.code === 'ErrorAccessDenied' || error.code === 'MailboxNotEnabledForRESTAPI') {
-      console.error('   💡 Suggestion: Verify that the mailbox exists and has an Exchange Online license');
-      console.error('   💡 Try using a different email address that you know has a working mailbox');
+    console.error("❌ Failed to send email via Microsoft Graph");
+    console.error("   Error code:", error.code);
+    console.error("   Error message:", error.message);
+    console.error("   Status code:", error.statusCode);
+    if (error.code === "ErrorAccessDenied" || error.code === "MailboxNotEnabledForRESTAPI") {
+      console.error("   💡 Suggestion: Verify that the mailbox exists and has an Exchange Online license");
     }
-    
-    console.error('   Full error:', JSON.stringify(error, null, 2));
-    console.log('=========================================\n');
-    
+    console.error("   Full error:", JSON.stringify(error, null, 2));
+    console.log("=========================================\n");
     throw new Error(`Failed to send email: ${error.message}`);
   }
 }

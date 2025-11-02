@@ -8,6 +8,11 @@ try {
   // ignore if dotenv not available in production env
 }
 
+// Default to production unless explicitly running in development
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'production';
+}
+
 (async () => {
   const path = require('path');
   const entry = path.resolve(__dirname, 'dist', 'index.js');

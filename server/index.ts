@@ -58,11 +58,16 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
+  // Only setup Vite in development; in production serve static assets.
+  // Also be resilient: if Vite isn't available, fall back to static.
+  const isDev = (process.env.NODE_ENV || app.get("env")) === "development";
+  if (isDev) {
+    try {
+      await setupVite(app, server);
+    } catch (e: any) {
+      log(`Vite dev middleware not available (${e?.message || e}). Falling back to static serving.`, "vite");
+      serveStatic(app);
+    }
   } else {
     serveStatic(app);
   }

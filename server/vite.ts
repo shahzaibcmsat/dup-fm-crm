@@ -1,12 +1,12 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
-import { nanoid } from "nanoid";
 
-const viteLogger = createLogger();
+// Note: We avoid importing any dev-only modules (like 'vite' or vite.config)
+// at the top level. cPanel production runs without devDependencies installed,
+// so only load them dynamically inside setupVite() when in development.
+// This keeps production from trying to resolve 'vite' at runtime.
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -20,15 +20,30 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Lazy-load Vite only in development. Avoid importing vite.config.ts to
+  // prevent bundling dev-only deps (vite, @vitejs/plugin-react) into prod.
+  const { createServer: createViteServer, createLogger } = await import("vite");
+  const { nanoid } = await import("nanoid");
+
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
     allowedHosts: true as const,
   };
 
+  const viteLogger = createLogger();
   const vite = await createViteServer({
-    ...viteConfig,
+    // Minimal inline config for dev middleware
     configFile: false,
+    root: path.resolve(import.meta.dirname, "..", "client"),
+    appType: "custom",
+    resolve: {
+      alias: {
+        "@": path.resolve(import.meta.dirname, "..", "client", "src"),
+        "@shared": path.resolve(import.meta.dirname, "..", "shared"),
+        "@assets": path.resolve(import.meta.dirname, "..", "attached_assets"),
+      },
+    },
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
@@ -37,7 +52,6 @@ export async function setupVite(app: Express, server: Server) {
       },
     },
     server: serverOptions,
-    appType: "custom",
   });
 
   app.use(vite.middlewares);
