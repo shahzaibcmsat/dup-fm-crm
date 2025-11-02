@@ -20,3 +20,7 @@ pnpm-debug.log*
 .turbo
 .cache
 .replit
+ 
+# Local archives (keep locally, don’t commit)
+dist.zip
+node_modules.zip
