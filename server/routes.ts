@@ -5,14 +5,6 @@ import * as XLSX from "xlsx";
 import { storage } from "./storage";
 import { insertLeadSchema, insertEmailSchema, insertCompanySchema } from "@shared/schema";
 import { sendEmail, isMicrosoftGraphConfigured, getAuthorizationUrl, exchangeCodeForTokens } from "./outlook";
-import { sendEmailViaSendGrid, sendEmailViaSendGridAuto, verifySendGridConfig, getSendGridConfig } from "./sendgrid";
-import { Client as SendGridClient } from '@sendgrid/client';
-
-// Dynamic email provider (read from environment; can be changed at runtime)
-function getProvider(): 'sendgrid' | 'microsoft' {
-  const p = (process.env.EMAIL_PROVIDER || 'microsoft').toLowerCase();
-  return (p === 'sendgrid' ? 'sendgrid' : 'microsoft');
-}
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -58,39 +50,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/status", async (req, res) => {
-    const sendGridConfig = verifySendGridConfig();
-    const sendGridDetails = getSendGridConfig();
-    
     res.json({
-      emailProvider: getProvider(),
+      emailProvider: 'microsoft',
       microsoftGraph: isMicrosoftGraphConfigured(),
-      sendgrid: sendGridConfig.configured,
       environment: {
         hasClientId: !!process.env.AZURE_CLIENT_ID,
         hasClientSecret: !!process.env.AZURE_CLIENT_SECRET,
         tenantId: process.env.AZURE_TENANT_ID || 'common',
-        fromAddress: process.env.EMAIL_FROM_ADDRESS || 'not set',
-        sendgridFromEmail: sendGridDetails.fromEmail,
-        sendgridConfigured: sendGridConfig.configured
+        fromAddress: process.env.EMAIL_FROM_ADDRESS || 'not set'
       }
     });
   });
 
   // Debug endpoint to test email configuration
   app.get("/api/debug/email-config", async (req, res) => {
-    const sendGridConfig = verifySendGridConfig();
-    const sendGridDetails = getSendGridConfig();
-    
     res.json({
-      provider: getProvider(),
-      sendgrid: {
-        configured: sendGridConfig.configured,
-        apiKey: sendGridDetails.apiKey,
-        fromEmail: sendGridDetails.fromEmail,
-        fromName: sendGridDetails.fromName,
-        apiKeyLength: process.env.SENDGRID_API_KEY?.length || 0,
-        apiKeyPrefix: process.env.SENDGRID_API_KEY?.substring(0, 10) || 'Not set'
-      },
+      provider: 'microsoft',
       microsoft: {
         configured: isMicrosoftGraphConfigured(),
         clientId: process.env.AZURE_CLIENT_ID ? 'Set (hidden)' : 'Not set',
@@ -100,186 +75,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         redirectUri: process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/callback'
       }
     });
-  });
-
-  // Debug: verify SendGrid API key/auth and list granted scopes
-  app.get('/api/debug/sendgrid-auth', async (_req, res) => {
-    try {
-      const apiKey = process.env.SENDGRID_API_KEY || '';
-      if (!apiKey) return res.status(400).json({ ok: false, error: 'SENDGRID_API_KEY not set' });
-
-      const region = (process.env.SENDGRID_REGION || 'global').toLowerCase();
-      const client = new SendGridClient();
-      client.setApiKey(apiKey.trim().replace(/^['\"]|['\"]$/g, ''));
-      // If EU residency, direct requests to EU API host
-      // @ts-ignore: setBaseUrl may not be typed in all versions
-      if (region === 'eu' && typeof (client as any).setBaseUrl === 'function') {
-        (client as any).setBaseUrl('https://api.eu.sendgrid.com');
-      }
-
-      const [resp, body] = await client.request({ method: 'GET', url: '/v3/scopes' });
-      res.json({ ok: true, status: resp.statusCode, region, scopes: body?.scopes || [] });
-    } catch (err: any) {
-      const status = err?.code || err?.response?.statusCode || 500;
-      const errors = err?.response?.body?.errors || [{ message: err?.message || 'Unknown error' }];
-      res.status(status).json({ ok: false, status, errors });
-    }
-  });
-
-  // Get current email provider and configuration
-  app.get("/api/email/provider", async (_req, res) => {
-    const provider = getProvider();
-    const sendGridConfig = verifySendGridConfig();
-    res.json({
-      provider,
-      available: ["sendgrid", "microsoft"],
-      sendgridConfigured: sendGridConfig.configured,
-      microsoftConfigured: isMicrosoftGraphConfigured(),
-    });
-  });
-
-  // Set current email provider at runtime (without restart)
-  app.post("/api/email/provider", async (req, res) => {
-    try {
-      const { provider } = req.body as { provider?: string };
-      if (!provider || !["sendgrid", "microsoft"].includes(provider)) {
-        return res.status(400).json({ message: "provider must be 'sendgrid' or 'microsoft'" });
-      }
-      // Update environment for this process so all modules read the new value
-      process.env.EMAIL_PROVIDER = provider;
-      res.json({ success: true, provider });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // SendGrid Inbound Parse Webhook
-  // This endpoint receives incoming emails from SendGrid
-  app.post("/api/webhooks/sendgrid/inbound", upload.single('email'), async (req, res) => {
-    try {
-      console.log('📨 Received inbound email webhook from SendGrid');
-      
-      // SendGrid sends email data as multipart/form-data
-      const fromEmail = req.body.from;
-      const toEmail = req.body.to;
-      const subject = req.body.subject || '(No Subject)';
-      const textBody = req.body.text || '';
-      const htmlBody = req.body.html || '';
-      const headers = req.body.headers || '';
-      
-      console.log(`   From: ${fromEmail}`);
-      console.log(`   To: ${toEmail}`);
-      console.log(`   Subject: ${subject}`);
-      
-      if (!fromEmail) {
-        console.log('⚠️ No sender email found in webhook');
-        return res.status(200).send('OK'); // Return 200 to prevent retries
-      }
-
-      // Extract the actual email address (remove name if present)
-      const emailMatch = fromEmail.match(/<(.+?)>/) || fromEmail.match(/([^\s<>]+@[^\s<>]+)/);
-      const senderEmail = emailMatch ? (emailMatch[1] || emailMatch[0]) : fromEmail;
-      
-      console.log(`   Extracted sender: ${senderEmail}`);
-
-      // Try to find a lead with this email address
-      const lead = await storage.getLeadByEmail(senderEmail);
-      
-      if (!lead) {
-        console.log(`⚠️ No lead found for email: ${senderEmail}`);
-        return res.status(200).send('OK'); // Return 200 to prevent retries
-      }
-
-      console.log(`✅ Found lead: ${lead.clientName}`);
-
-      // Parse headers to get Message-ID and In-Reply-To
-      let messageId: string | null = null;
-      let inReplyTo: string | null = null;
-      let conversationId: string | null = null;
-      
-      if (headers) {
-        const messageIdMatch = headers.match(/Message-ID:\s*<?([^>\n]+)>?/i);
-        const inReplyToMatch = headers.match(/In-Reply-To:\s*<?([^>\n]+)>?/i);
-        
-        messageId = messageIdMatch ? messageIdMatch[1].trim() : null;
-        inReplyTo = inReplyToMatch ? inReplyToMatch[1].trim() : null;
-        
-        console.log(`   Message-ID: ${messageId}`);
-        console.log(`   In-Reply-To: ${inReplyTo}`);
-      }
-
-      // Check if we already have this message (prevent duplicates)
-      if (messageId) {
-        const existing = await storage.getEmailByMessageId(messageId);
-        if (existing) {
-          console.log(`   ℹ️ Email already exists, skipping`);
-          return res.status(200).send('OK');
-        }
-      }
-
-      // Try to find conversation ID from previous emails
-      if (inReplyTo) {
-        const repliedEmail = await storage.getEmailByMessageId(inReplyTo);
-        if (repliedEmail?.conversationId) {
-          conversationId = repliedEmail.conversationId;
-        }
-      }
-
-      // If no conversation ID found, create one
-      if (!conversationId) {
-        conversationId = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      }
-
-      // Save the email
-      const emailData = insertEmailSchema.parse({
-        leadId: lead.id,
-        subject: subject,
-        body: htmlBody || textBody,
-        direction: 'received',
-        messageId: messageId || `msg-${Date.now()}`,
-        conversationId: conversationId,
-        fromEmail: senderEmail,
-        toEmail: toEmail || process.env.SENDGRID_FROM_EMAIL || null,
-        inReplyTo: inReplyTo,
-      });
-
-      await storage.createEmail(emailData);
-      console.log(`✅ Saved email from ${senderEmail} for lead ${lead.clientName}`);
-      
-      // Update lead status to "Replied"
-      await storage.updateLeadStatus(lead.id, 'Replied');
-      
-      // Add notification
-      const { addEmailNotification } = await import('./index');
-      addEmailNotification(lead.id, lead.clientName, senderEmail, subject);
-      console.log(`🔔 Added notification for ${lead.clientName}`);
-      
-      res.status(200).send('OK');
-    } catch (error: any) {
-      console.error('❌ Error processing inbound email webhook:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Test SendGrid email sending
-  app.post("/api/debug/test-sendgrid", async (req, res) => {
-    try {
-      const { to } = req.body;
-      if (!to) {
-        return res.status(400).json({ error: 'Email address required in body as "to"' });
-      }
-
-      const result = await sendEmailViaSendGridAuto({
-        to,
-        subject: 'Test Email from FMD CRM',
-        text: 'This is a test email to verify SendGrid integration is working correctly.',
-        html: '<p>This is a test email to verify <strong>SendGrid</strong> integration is working correctly.</p>'
-      });
-
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
   });
 
   // Test if the mailbox exists and is accessible
@@ -399,8 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? existingEmails.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())[0]
         : null;
 
-      const provider = getProvider();
-      console.log(`📧 Sending email via ${provider} provider...`);
+      console.log(`📧 Sending email via Microsoft Graph...`);
       
       if (lastEmail) {
         console.log(`🧵 Found existing conversation - replying to thread`);
@@ -415,47 +209,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailSubject = `Re: ${baseSubject}`;
       }
 
-      // Send email using configured provider
-      let result: { success?: boolean; messageId?: string; conversationId?: string; error?: string };
+      // Send email using Microsoft Graph
+      const result = await sendEmail(
+        lead.email, 
+        emailSubject, 
+        body, 
+        undefined, // fromEmail (use default)
+        lastEmail?.messageId || undefined // inReplyTo for threading
+      );
       
-      if (provider === 'sendgrid') {
-        // Use SendGrid (auto: API then fallback to SMTP on auth errors)
-        result = await sendEmailViaSendGridAuto({
-          to: lead.email,
-          subject: emailSubject,
-          text: body,
-          html: body.replace(/\n/g, '<br>'),
-          inReplyTo: lastEmail?.messageId || undefined,
-          references: lastEmail?.messageId || undefined,
-        });
-        
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to send email via SendGrid');
-        }
-        
-        // Preserve conversation ID from previous emails
-        if (lastEmail?.conversationId && !result.conversationId) {
-          result.conversationId = lastEmail.conversationId;
-        }
-      } else {
-        // Use Microsoft Graph (default)
-        result = await sendEmail(
-          lead.email, 
-          emailSubject, 
-          body, 
-          undefined, // fromEmail (use default)
-          lastEmail?.messageId || undefined // inReplyTo for threading
-        );
-        
-        // Preserve conversation ID from previous emails
-        if (lastEmail?.conversationId && !result.conversationId) {
-          result.conversationId = lastEmail.conversationId;
-        }
+      // Preserve conversation ID from previous emails
+      if (lastEmail?.conversationId && !result.conversationId) {
+        result.conversationId = lastEmail.conversationId;
       }
 
-      const fromEmail = provider === 'sendgrid' 
-        ? process.env.SENDGRID_FROM_EMAIL 
-        : process.env.EMAIL_FROM_ADDRESS;
+      const fromEmail = process.env.EMAIL_FROM_ADDRESS;
 
       const emailData = insertEmailSchema.parse({
         leadId: lead.id,
@@ -473,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.updateLeadStatus(lead.id, "Contacted");
 
-      res.json({ success: true, email, provider });
+      res.json({ success: true, email });
     } catch (error: any) {
       console.error("Error sending email:", error);
       res.status(500).json({ message: error.message || "Failed to send email" });
