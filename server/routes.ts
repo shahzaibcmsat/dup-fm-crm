@@ -5,10 +5,26 @@ import * as XLSX from "xlsx";
 import { storage } from "./storage";
 import { insertLeadSchema, insertEmailSchema, insertCompanySchema } from "@shared/schema";
 import { sendEmail, isMicrosoftGraphConfigured, getAuthorizationUrl, exchangeCodeForTokens } from "./outlook";
+import { grammarFix } from "./groq";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Grammar check endpoint for email composition
+  app.post("/api/grammar/fix", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) {
+        return res.status(400).json({ message: "Text is required" });
+      }
+      const result = await grammarFix(text);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Grammar fix error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // OAuth authentication routes for Microsoft Graph
   app.get("/api/auth/microsoft", async (req, res) => {
     try {

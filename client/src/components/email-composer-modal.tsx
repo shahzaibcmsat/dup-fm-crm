@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { X, Send, Loader2 } from "lucide-react";
+import { X, Send, Loader2, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Lead } from "@shared/schema";
+import { fixGrammar } from "@/lib/grammar";
+import { useToast } from "@/hooks/use-toast";
 
 interface EmailComposerModalProps {
   lead: Lead | null;
@@ -26,6 +28,8 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isCheckingGrammar, setIsCheckingGrammar] = useState(false);
+  const { toast } = useToast();
 
   // Auto-populate subject when replying to a received email
   useEffect(() => {
@@ -52,6 +56,52 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
       onClose();
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleCheckGrammar = async () => {
+    if (!body.trim()) {
+      toast({
+        title: "No content to check",
+        description: "Please type some message content first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCheckingGrammar(true);
+    try {
+      const result = await fixGrammar(body);
+      
+      if (result.text !== body) {
+        setBody(result.text);
+        
+        // Show suggestions if any
+        if (result.suggestions && result.suggestions.length > 0) {
+          toast({
+            title: "✨ Grammar improved!",
+            description: result.suggestions.slice(0, 3).join(" • "),
+          });
+        } else {
+          toast({
+            title: "✨ Grammar improved!",
+            description: "Your text has been refined for clarity and professionalism.",
+          });
+        }
+      } else {
+        toast({
+          title: "Looks great!",
+          description: "No grammar issues detected.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Grammar check failed",
+        description: error.message || "Unable to check grammar. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingGrammar(false);
     }
   };
 
@@ -86,7 +136,29 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="body">Message</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="body">Message</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleCheckGrammar}
+                disabled={isCheckingGrammar || isSending || !body.trim()}
+                className="h-8 text-xs"
+              >
+                {isCheckingGrammar ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Check Grammar
+                  </>
+                )}
+              </Button>
+            </div>
             <Textarea
               id="body"
               placeholder="Type your message here..."
