@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +76,9 @@ export function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
       <DialogContent className="max-w-2xl" data-testid="modal-import">
         <DialogHeader>
           <DialogTitle>Import Leads</DialogTitle>
+          <DialogDescription>
+            Upload an Excel or CSV file to import leads into your CRM
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6 py-4">

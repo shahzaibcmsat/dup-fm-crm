@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,6 +111,9 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
       <DialogContent className="max-w-2xl" data-testid="modal-email-composer">
         <DialogHeader>
           <DialogTitle>Reply to {lead?.clientName}</DialogTitle>
+          <DialogDescription>
+            Compose and send an email response to this lead
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
