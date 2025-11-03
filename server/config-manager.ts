@@ -31,10 +31,6 @@ export function initializeConfig() {
     GROQ_API_KEY: process.env.GROQ_API_KEY || '',
     GROQ_MODEL: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
     
-    // SendGrid (optional)
-    SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || '',
-    SENDGRID_FROM_EMAIL: process.env.SENDGRID_FROM_EMAIL || '',
-    
     // Server
     PORT: process.env.PORT || '5000',
     NODE_ENV: process.env.NODE_ENV || 'development',

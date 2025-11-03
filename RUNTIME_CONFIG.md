@@ -19,7 +19,6 @@ This application now supports runtime configuration management, allowing you to 
      - 📊 Database Configuration
      - 📧 Microsoft Outlook/Azure Configuration
      - 🤖 Groq AI Configuration
-     - 📨 SendGrid Configuration (Optional)
      - ⚙️ Server Configuration
    - Password-style inputs with show/hide toggle for sensitive values
    - Real-time validation feedback
@@ -49,10 +48,6 @@ This application now supports runtime configuration management, allowing you to 
 ### Groq AI
 - `GROQ_API_KEY` - Groq API key for grammar checking (masked)
 - `GROQ_MODEL` - AI model name (e.g., llama-3.3-70b-versatile)
-
-### SendGrid (Optional)
-- `SENDGRID_API_KEY` - SendGrid API key (masked)
-- `SENDGRID_FROM_EMAIL` - SendGrid sender email
 
 ### Server
 - `PORT` - Server port (default: 5000)

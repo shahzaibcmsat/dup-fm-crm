@@ -18,8 +18,6 @@ interface ConfigData {
   EMAIL_FROM_ADDRESS: string;
   GROQ_API_KEY: string;
   GROQ_MODEL: string;
-  SENDGRID_API_KEY: string;
-  SENDGRID_FROM_EMAIL: string;
   PORT: string;
   NODE_ENV: string;
 }
@@ -34,8 +32,6 @@ export default function Settings() {
     EMAIL_FROM_ADDRESS: '',
     GROQ_API_KEY: '',
     GROQ_MODEL: '',
-    SENDGRID_API_KEY: '',
-    SENDGRID_FROM_EMAIL: '',
     PORT: '',
     NODE_ENV: '',
   });
@@ -228,23 +224,6 @@ export default function Settings() {
                   Groq Console
                 </a>
               </p>
-            </CardContent>
-          </Card>
-
-          {/* SendGrid Configuration (Optional) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                SendGrid Configuration (Optional)
-              </CardTitle>
-              <CardDescription>
-                Alternative email provider using SendGrid
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {renderSecretInput('SENDGRID_API_KEY', 'SendGrid API Key', 'SG.xxx', <Key className="w-4 h-4" />)}
-              {renderInput('SENDGRID_FROM_EMAIL', 'SendGrid From Email', 'noreply@domain.com', <Mail className="w-4 h-4" />)}
             </CardContent>
           </Card>
 

@@ -128,13 +128,6 @@ function startEmailSyncJob() {
 
   const syncEmails = async () => {
     try {
-      const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'microsoft';
-      
-      // Skip email sync if using SendGrid (SendGrid doesn't support fetching emails)
-      if (EMAIL_PROVIDER === 'sendgrid') {
-        return; // SendGrid only sends emails, cannot receive/fetch
-      }
-
       const { fetchNewEmails, getInReplyToHeader, isMicrosoftGraphConfigured } = await import('./outlook');
       const { storage } = await import('./storage');
       const { insertEmailSchema } = await import('@shared/schema');
