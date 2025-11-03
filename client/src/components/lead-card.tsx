@@ -1,5 +1,5 @@
 import React from "react";
-import { Mail, Clock, Building2, Trash2 } from "lucide-react";
+import { Mail, Clock, Building2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,6 @@ interface LeadCardProps {
   onReply: (lead: Lead) => void;
   onViewDetails: (lead: Lead) => void;
   onStatusChange?: (leadId: string, status: string) => void;
-  onDelete?: () => void;
 }
 
 const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
@@ -38,7 +37,7 @@ const statusOptions = [
   "Closed"
 ];
 
-export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, onDelete }: LeadCardProps) {
+export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadCardProps) {
   const { perLeadUnread } = useUnreadEmailCounts();
   const unread = perLeadUnread[lead.id] || 0;
   const hasUnread = unread > 0;
@@ -136,20 +135,6 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, onDelet
             <Mail className="w-3.5 h-3.5 mr-2" />
             {hasUnread ? 'View Reply' : 'Reply'}
           </Button>
-          {onDelete && (
-            <Button 
-              size="sm" 
-              variant="ghost"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              data-testid={`button-delete-${lead.id}`}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
-          )}
         </div>
       </div>
     </Card>

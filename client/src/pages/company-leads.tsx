@@ -31,7 +31,6 @@ export default function CompanyLeads() {
   const [replyingToLead, setReplyingToLead] = useState<Lead | null>(null);
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: company, isLoading: companyLoading } = useQuery<Company>({
@@ -89,28 +88,6 @@ export default function CompanyLeads() {
       toast({
         title: "Status updated",
         description: "Lead status has been updated successfully.",
-      });
-    },
-  });
-
-  const deleteLeadMutation = useMutation({
-    mutationFn: async (leadId: string) => {
-      return apiRequest("DELETE", `/api/leads/${leadId}`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/companies', companyId, 'leads'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
-      toast({
-        title: "Lead deleted",
-        description: "Lead has been deleted successfully.",
-      });
-      setSelectedLeadIds(new Set());
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to delete lead",
-        description: error.message,
-        variant: "destructive",
       });
     },
   });
@@ -179,10 +156,7 @@ export default function CompanyLeads() {
   };
 
   const confirmDelete = async () => {
-    if (leadToDelete) {
-      await deleteLeadMutation.mutateAsync(leadToDelete);
-      setLeadToDelete(null);
-    } else if (selectedLeadIds.size > 0) {
+    if (selectedLeadIds.size > 0) {
       await bulkDeleteMutation.mutateAsync(Array.from(selectedLeadIds));
     }
     setIsDeleteDialogOpen(false);
@@ -288,10 +262,6 @@ export default function CompanyLeads() {
                     onReply={handleReply}
                     onViewDetails={setSelectedLead}
                     onStatusChange={handleStatusChange}
-                    onDelete={() => {
-                      setLeadToDelete(lead.id);
-                      setIsDeleteDialogOpen(true);
-                    }}
                   />
                 </div>
               </div>
@@ -326,13 +296,11 @@ export default function CompanyLeads() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              {leadToDelete 
-                ? "This will permanently delete this lead and all associated emails. This action cannot be undone."
-                : `This will permanently delete ${selectedLeadIds.size} lead${selectedLeadIds.size !== 1 ? 's' : ''} and all associated emails. This action cannot be undone.`}
+              This will permanently delete {selectedLeadIds.size} lead{selectedLeadIds.size !== 1 ? 's' : ''} and all associated emails. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setLeadToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
