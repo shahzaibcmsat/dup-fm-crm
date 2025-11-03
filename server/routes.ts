@@ -6,6 +6,7 @@ import { storage } from "./storage";
 import { insertLeadSchema, insertEmailSchema, insertCompanySchema } from "@shared/schema";
 import { sendEmail, isMicrosoftGraphConfigured, getAuthorizationUrl, exchangeCodeForTokens } from "./outlook";
 import { grammarFix } from "./groq";
+import { getAllConfig, saveConfigToFile, validateConfig } from "./config-manager";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -187,6 +188,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Lead not found" });
       }
       res.json(lead);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/leads/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteLead(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      res.json({ message: "Lead deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/leads/bulk-delete", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "Lead IDs array is required" });
+      }
+      const deletedCount = await storage.deleteLeads(ids);
+      res.json({ 
+        message: `${deletedCount} lead(s) deleted successfully`,
+        count: deletedCount
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -446,6 +475,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Company not found" });
       }
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Configuration management endpoints
+  app.get("/api/config", async (req, res) => {
+    try {
+      const config = getAllConfig(false); // Don't include full sensitive values
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/config", async (req, res) => {
+    try {
+      const updates = req.body;
+      
+      // Validate configuration
+      const validation = validateConfig(updates);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          message: "Invalid configuration",
+          errors: validation.errors 
+        });
+      }
+      
+      // Save to .env file and update runtime config
+      const success = saveConfigToFile(updates);
+      
+      if (success) {
+        res.json({ 
+          success: true, 
+          message: "Configuration updated successfully. Some changes may require a server restart." 
+        });
+      } else {
+        res.status(500).json({ 
+          message: "Failed to save configuration" 
+        });
+      }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

@@ -7,9 +7,21 @@ import { LeadCard } from "@/components/lead-card";
 import { EmailComposerModal } from "@/components/email-composer-modal";
 import { LeadDetailPanel } from "@/components/lead-detail-panel";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Building2, Trash2 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function CompanyLeads() {
   const [, params] = useRoute("/companies/:id");
@@ -17,6 +29,9 @@ export default function CompanyLeads() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [replyingToLead, setReplyingToLead] = useState<Lead | null>(null);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: company, isLoading: companyLoading } = useQuery<Company>({
@@ -78,6 +93,50 @@ export default function CompanyLeads() {
     },
   });
 
+  const deleteLeadMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      return apiRequest("DELETE", `/api/leads/${leadId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/companies', companyId, 'leads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Lead deleted",
+        description: "Lead has been deleted successfully.",
+      });
+      setSelectedLeadIds(new Set());
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete lead",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return apiRequest("POST", `/api/leads/bulk-delete`, { ids });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/companies', companyId, 'leads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Leads deleted",
+        description: `${data.count} lead(s) deleted successfully.`,
+      });
+      setSelectedLeadIds(new Set());
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete leads",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleReply = (lead: Lead) => {
     setReplyingToLead(lead);
     setIsComposerOpen(true);
@@ -95,6 +154,42 @@ export default function CompanyLeads() {
   const handleStatusChange = (leadId: string, newStatus: string) => {
     updateStatusMutation.mutate({ leadId, status: newStatus });
   };
+
+  const handleToggleSelectLead = (leadId: string) => {
+    const newSelected = new Set(selectedLeadIds);
+    if (newSelected.has(leadId)) {
+      newSelected.delete(leadId);
+    } else {
+      newSelected.add(leadId);
+    }
+    setSelectedLeadIds(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedLeadIds.size === leads.length) {
+      setSelectedLeadIds(new Set());
+    } else {
+      setSelectedLeadIds(new Set(leads.map(lead => lead.id)));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedLeadIds.size === 0) return;
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (leadToDelete) {
+      await deleteLeadMutation.mutateAsync(leadToDelete);
+      setLeadToDelete(null);
+    } else if (selectedLeadIds.size > 0) {
+      await bulkDeleteMutation.mutateAsync(Array.from(selectedLeadIds));
+    }
+    setIsDeleteDialogOpen(false);
+  };
+
+  const allSelected = leads.length > 0 && selectedLeadIds.size === leads.length;
+  const someSelected = selectedLeadIds.size > 0 && selectedLeadIds.size < leads.length;
 
   // Get the last received email's subject for the lead being replied to
   const lastReceivedEmail = emails
@@ -124,16 +219,30 @@ export default function CompanyLeads() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-          <Building2 className="w-5 h-5 text-primary" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold">{company.name}</h1>
+            <p className="text-sm text-muted-foreground">
+              {selectedLeadIds.size > 0 
+                ? `${selectedLeadIds.size} of ${leads.length} selected`
+                : `${leads.length} lead${leads.length !== 1 ? 's' : ''}`}
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-semibold">{company.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {leads.length} lead{leads.length !== 1 ? 's' : ''}
-          </p>
-        </div>
+        {selectedLeadIds.size > 0 && (
+          <Button
+            variant="destructive"
+            onClick={handleDeleteSelected}
+            disabled={bulkDeleteMutation.isPending}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete {selectedLeadIds.size} Lead{selectedLeadIds.size !== 1 ? 's' : ''}
+          </Button>
+        )}
       </div>
 
       {leadsLoading ? (
@@ -149,16 +258,45 @@ export default function CompanyLeads() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {leads.map((lead) => (
-            <LeadCard
-              key={lead.id}
-              lead={lead}
-              onReply={handleReply}
-              onViewDetails={setSelectedLead}
-              onStatusChange={handleStatusChange}
-            />
-          ))}
+        <div>
+          {leads.length > 0 && (
+            <div className="flex items-center gap-3 mb-4">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={handleSelectAll}
+                aria-label="Select all leads"
+                className={someSelected ? "data-[state=checked]:bg-primary/50" : ""}
+              />
+              <p className="text-sm text-muted-foreground">
+                {selectedLeadIds.size > 0 ? 'Select all' : 'Select all'}
+              </p>
+            </div>
+          )}
+          <div className="space-y-4">
+            {leads.map((lead) => (
+              <div key={lead.id} className="flex items-start gap-3">
+                <Checkbox
+                  checked={selectedLeadIds.has(lead.id)}
+                  onCheckedChange={() => handleToggleSelectLead(lead.id)}
+                  aria-label={`Select ${lead.clientName}`}
+                  className="mt-4"
+                />
+                <div className="flex-1">
+                  <LeadCard
+                    key={lead.id}
+                    lead={lead}
+                    onReply={handleReply}
+                    onViewDetails={setSelectedLead}
+                    onStatusChange={handleStatusChange}
+                    onDelete={() => {
+                      setLeadToDelete(lead.id);
+                      setIsDeleteDialogOpen(true);
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -182,6 +320,28 @@ export default function CompanyLeads() {
           onReply={handleReply}
         />
       )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {leadToDelete 
+                ? "This will permanently delete this lead and all associated emails. This action cannot be undone."
+                : `This will permanently delete ${selectedLeadIds.size} lead${selectedLeadIds.size !== 1 ? 's' : ''} and all associated emails. This action cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLeadToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -17,10 +17,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Loader2, Filter, Plus, Building2 } from "lucide-react";
+import { Search, Loader2, Filter, Plus, Building2, Trash2 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { notificationStore } from "@/lib/notificationStore";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Leads() {
   const [location, setLocation] = useLocation();
@@ -32,6 +43,9 @@ export default function Leads() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("all");
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: leads = [], isLoading } = useQuery<Lead[]>({
@@ -112,6 +126,48 @@ export default function Leads() {
     },
   });
 
+  const deleteLeadMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      return apiRequest("DELETE", `/api/leads/${leadId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Lead deleted",
+        description: "Lead has been deleted successfully.",
+      });
+      setSelectedLeadIds(new Set());
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete lead",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return apiRequest("POST", `/api/leads/bulk-delete`, { ids });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Leads deleted",
+        description: `${data.count} lead(s) deleted successfully.`,
+      });
+      setSelectedLeadIds(new Set());
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete leads",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleReply = (lead: Lead) => {
     setReplyingToLead(lead);
     setIsComposerOpen(true);
@@ -128,6 +184,39 @@ export default function Leads() {
 
   const handleStatusChange = (leadId: string, newStatus: string) => {
     updateStatusMutation.mutate({ leadId, status: newStatus });
+  };
+
+  const handleToggleSelectLead = (leadId: string) => {
+    const newSelected = new Set(selectedLeadIds);
+    if (newSelected.has(leadId)) {
+      newSelected.delete(leadId);
+    } else {
+      newSelected.add(leadId);
+    }
+    setSelectedLeadIds(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedLeadIds.size === filteredLeads.length) {
+      setSelectedLeadIds(new Set());
+    } else {
+      setSelectedLeadIds(new Set(filteredLeads.map(lead => lead.id)));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedLeadIds.size === 0) return;
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (leadToDelete) {
+      await deleteLeadMutation.mutateAsync(leadToDelete);
+      setLeadToDelete(null);
+    } else if (selectedLeadIds.size > 0) {
+      await bulkDeleteMutation.mutateAsync(Array.from(selectedLeadIds));
+    }
+    setIsDeleteDialogOpen(false);
   };
 
   // Get the last received email's subject for the lead being replied to
@@ -152,6 +241,9 @@ export default function Leads() {
     return matchesSearch && matchesStatus && matchesCompany;
   });
 
+  const allFilteredSelected = filteredLeads.length > 0 && selectedLeadIds.size === filteredLeads.length;
+  const someSelected = selectedLeadIds.size > 0 && selectedLeadIds.size < filteredLeads.length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -161,16 +253,28 @@ export default function Leads() {
             Manage and track all your leads
           </p>
         </div>
-        <Button 
-          onClick={() => {
-            setEditingLead(null);
-            setIsAddLeadOpen(true);
-          }}
-          className="bg-fmd-green hover:bg-fmd-green-dark"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Lead
-        </Button>
+        <div className="flex gap-2">
+          {selectedLeadIds.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSelected}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete {selectedLeadIds.size} Lead{selectedLeadIds.size !== 1 ? 's' : ''}
+            </Button>
+          )}
+          <Button 
+            onClick={() => {
+              setEditingLead(null);
+              setIsAddLeadOpen(true);
+            }}
+            className="bg-fmd-green hover:bg-fmd-green-dark"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Lead
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -238,18 +342,44 @@ export default function Leads() {
         </Card>
       ) : (
         <div>
-          <p className="text-sm text-muted-foreground mb-4" data-testid="text-result-count">
-            Showing {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={allFilteredSelected}
+                onCheckedChange={handleSelectAll}
+                aria-label="Select all leads"
+                className={someSelected ? "data-[state=checked]:bg-primary/50" : ""}
+              />
+              <p className="text-sm text-muted-foreground" data-testid="text-result-count">
+                {selectedLeadIds.size > 0 
+                  ? `${selectedLeadIds.size} of ${filteredLeads.length} selected`
+                  : `Showing ${filteredLeads.length} lead${filteredLeads.length !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+          </div>
           <div className="space-y-4">
             {filteredLeads.map((lead) => (
-              <LeadCard
-                key={lead.id}
-                lead={lead}
-                onReply={handleReply}
-                onViewDetails={setSelectedLead}
-                onStatusChange={handleStatusChange}
-              />
+              <div key={lead.id} className="flex items-start gap-3">
+                <Checkbox
+                  checked={selectedLeadIds.has(lead.id)}
+                  onCheckedChange={() => handleToggleSelectLead(lead.id)}
+                  aria-label={`Select ${lead.clientName}`}
+                  className="mt-4"
+                />
+                <div className="flex-1">
+                  <LeadCard
+                    key={lead.id}
+                    lead={lead}
+                    onReply={handleReply}
+                    onViewDetails={setSelectedLead}
+                    onStatusChange={handleStatusChange}
+                    onDelete={() => {
+                      setLeadToDelete(lead.id);
+                      setIsDeleteDialogOpen(true);
+                    }}
+                  />
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -288,6 +418,28 @@ export default function Leads() {
           }}
         />
       )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {leadToDelete 
+                ? "This will permanently delete this lead and all associated emails. This action cannot be undone."
+                : `This will permanently delete ${selectedLeadIds.size} lead${selectedLeadIds.size !== 1 ? 's' : ''} and all associated emails. This action cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLeadToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

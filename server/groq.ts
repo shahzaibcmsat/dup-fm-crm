@@ -1,14 +1,14 @@
 import Groq from "groq-sdk";
+import { getConfig } from "./config-manager";
 
 export type GrammarServerResult = {
   text: string;
   suggestions: string[];
 };
 
-const MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-
 export async function grammarFix(text: string): Promise<GrammarServerResult> {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = getConfig('GROQ_API_KEY');
+  const model = getConfig('GROQ_MODEL') || "llama-3.3-70b-versatile";
   
   if (!apiKey) {
     throw new Error("GROQ_API_KEY is not set on the server");
@@ -25,7 +25,7 @@ export async function grammarFix(text: string): Promise<GrammarServerResult> {
   const user = `Text to improve:\n\n${text}`;
 
   const completion = await groq.chat.completions.create({
-    model: MODEL,
+    model: model,
     temperature: 0.2,
     max_tokens: 600,
     messages: [

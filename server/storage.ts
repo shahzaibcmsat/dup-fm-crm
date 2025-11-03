@@ -1,6 +1,6 @@
 import { leads, emails, companies, type Lead, type InsertLead, type Email, type InsertEmail, type Company, type InsertCompany } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 
 export type LeadWithCompany = Lead & { company?: Company | null };
 
@@ -12,6 +12,8 @@ export interface IStorage {
   createLead(lead: InsertLead): Promise<Lead>;
   updateLead(id: string, lead: InsertLead): Promise<Lead | undefined>;
   updateLeadStatus(id: string, status: string): Promise<Lead | undefined>;
+  deleteLead(id: string): Promise<boolean>;
+  deleteLeads(ids: string[]): Promise<number>;
   getEmailsByLeadId(leadId: string): Promise<Email[]>;
   getEmailByMessageId(messageId: string): Promise<Email | undefined>;
   createEmail(email: InsertEmail): Promise<Email>;
@@ -105,6 +107,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(leads.id, id))
       .returning();
     return lead || undefined;
+  }
+
+  async deleteLead(id: string): Promise<boolean> {
+    // First delete associated emails
+    await db.delete(emails).where(eq(emails.leadId, id));
+    
+    // Then delete the lead
+    const result = await db.delete(leads).where(eq(leads.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deleteLeads(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    
+    // First delete associated emails for all leads
+    await db.delete(emails).where(inArray(emails.leadId, ids));
+    
+    // Then delete all leads
+    const result = await db.delete(leads).where(inArray(leads.id, ids)).returning();
+    return result.length;
   }
 
   async getEmailsByLeadId(leadId: string): Promise<Email[]> {
