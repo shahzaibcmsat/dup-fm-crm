@@ -136,8 +136,13 @@ function startEmailSyncJob() {
         return; // Skip if not configured
       }
 
+      log(`🔍 Checking for new emails since ${new Date(lastSyncTime).toLocaleString()}`);
       const newEmails = await fetchNewEmails(lastSyncTime);
       let savedCount = 0;
+
+      if (newEmails.length > 0) {
+        log(`📬 Found ${newEmails.length} emails to process`);
+      }
 
       for (const email of newEmails) {
         const fromAddress = email.from?.emailAddress?.address;
@@ -171,18 +176,22 @@ function startEmailSyncJob() {
             log(`📨 Saved reply from ${fromAddress} for lead ${lead.clientName}`);
             
             // Add notification for this new reply
-            addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
+            const notification = addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
+            log(`🔔 Created notification ${notification.id} for ${lead.clientName}`);
           }
         }
       }
 
       if (savedCount > 0) {
-        log(`✅ Email sync: ${savedCount} new replies saved`);
+        log(`✅ Email sync: ${savedCount} new replies saved and ${savedCount} notifications created`);
+      } else if (newEmails.length > 0) {
+        log(`ℹ️  Email sync: ${newEmails.length} emails checked, none were new or matched leads`);
       }
 
       lastSyncTime = new Date().toISOString();
     } catch (error: any) {
       log(`❌ Email sync error: ${error.message}`);
+      console.error(error);
     }
   };
 

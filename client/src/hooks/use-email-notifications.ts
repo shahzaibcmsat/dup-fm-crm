@@ -14,19 +14,34 @@ interface EmailNotification {
 
 export function useEmailNotifications() {
   const { toast } = useToast();
-  const lastCheckRef = useRef<string>(new Date().toISOString());
+  const lastCheckRef = useRef<string | null>(null);
   const shownNotificationsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const checkForNotifications = async () => {
       try {
-        const response = await fetch(`/api/notifications/emails?since=${lastCheckRef.current}`);
+        // Build URL with optional since parameter
+        const url = lastCheckRef.current 
+          ? `/api/notifications/emails?since=${lastCheckRef.current}`
+          : '/api/notifications/emails';
+          
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          console.error('Failed to fetch notifications:', response.statusText);
+          return;
+        }
+        
         const data = await response.json();
 
         if (data.notifications && data.notifications.length > 0) {
+          console.log(`📬 Received ${data.notifications.length} notifications`);
+          
           data.notifications.forEach((notification: EmailNotification) => {
             // Only show if we haven't shown this notification before
             if (!shownNotificationsRef.current.has(notification.id)) {
+              console.log(`🔔 Showing notification for lead: ${notification.leadName}`);
+              
               toast({
                 title: "📧 New Email Reply!",
                 description: `${notification.leadName} replied: "${notification.subject}"`,
@@ -53,11 +68,11 @@ export function useEmailNotifications() {
       }
     };
 
-    // Check immediately
+    // Check immediately on mount
     checkForNotifications();
 
-    // Then check every 30 seconds
-    const interval = setInterval(checkForNotifications, 30000);
+    // Then check every 15 seconds (more frequent to catch notifications faster)
+    const interval = setInterval(checkForNotifications, 15000);
 
     return () => clearInterval(interval);
   }, [toast]);

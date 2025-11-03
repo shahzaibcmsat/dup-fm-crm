@@ -318,6 +318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/emails/sync", async (req, res) => {
     try {
       const { fetchNewEmails, getInReplyToHeader } = await import("./outlook");
+      const { addEmailNotification } = await import("./index");
       
       // Get timestamp of last sync (or fetch all recent emails)
       const lastSyncTime = req.body.since || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -360,6 +361,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Update lead status to "Replied" if they responded
             await storage.updateLeadStatus(lead.id, "Replied");
+            
+            // Add notification for this new reply
+            addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
+            console.log(`📧 Added notification for ${lead.clientName} - ${email.subject}`);
           }
         }
       }
