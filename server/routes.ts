@@ -440,15 +440,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const leads = data.map((row: any) => {
         const clientName = row["Client Name"] || row["Name"] || row["client_name"] || row["name"];
         const email = row["Email"] || row["email"];
-        const leadDetails = row["Lead Details"] || row["Lead"] || row["Description"] || row["lead_details"] || row["description"] || "";
+        const phone = row["Phone Number"] || row["Phone"] || row["phone"] || row["phone_number"] || "";
+        const subject = row["Subject"] || row["subject"] || "";
+        const leadDetails = row["Lead Details"] || row["Lead Description"] || row["Description"] || row["lead_details"] || row["description"] || "";
 
         if (!clientName || !email) {
-          throw new Error("Each row must have Client Name and Email columns");
+          throw new Error("Each row must have Name and Email columns");
         }
 
         return {
           clientName: String(clientName).trim(),
           email: String(email).trim(),
+          phone: phone ? String(phone).trim() : null,
+          subject: subject ? String(subject).trim() : null,
           leadDetails: String(leadDetails).trim(),
           status: "New",
         };

@@ -1,5 +1,5 @@
 import React from "react";
-import { Mail, Clock, Building2 } from "lucide-react";
+import { Mail, Clock, Building2, Phone, MessageSquare } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +81,18 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadC
             </div>
             <span className={`truncate ${hasUnread ? 'text-red-800 font-semibold' : ''}`} data-testid={`text-email-${lead.id}`}>{lead.email}</span>
           </div>
+          {lead.phone && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <Phone className="w-4 h-4 text-fmd-green" />
+              <span className="truncate">{lead.phone}</span>
+            </div>
+          )}
+          {lead.subject && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <MessageSquare className="w-4 h-4 text-fmd-burgundy" />
+              <span className="truncate font-medium">{lead.subject}</span>
+            </div>
+          )}
           {lead.leadDetails && (
             <p className={`text-sm line-clamp-2 mb-2 ${hasUnread ? 'text-red-700 font-medium' : 'text-muted-foreground'}`}>
               {lead.leadDetails}

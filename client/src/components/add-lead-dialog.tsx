@@ -34,6 +34,8 @@ interface AddLeadDialogProps {
 export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
   const [clientName, setClientName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [subject, setSubject] = useState("");
   const [leadDetails, setLeadDetails] = useState("");
   const [companyId, setCompanyId] = useState<string>("");
   const { toast } = useToast();
@@ -46,11 +48,15 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
     if (lead) {
       setClientName(lead.clientName);
       setEmail(lead.email);
+      setPhone(lead.phone || "");
+      setSubject(lead.subject || "");
       setLeadDetails(lead.leadDetails || "");
       setCompanyId(lead.companyId || "");
     } else {
       setClientName("");
       setEmail("");
+      setPhone("");
+      setSubject("");
       setLeadDetails("");
       setCompanyId("");
     }
@@ -104,6 +110,8 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
     const data = {
       clientName,
       email,
+      phone: phone || undefined,
+      subject: subject || undefined,
       leadDetails: leadDetails || undefined,
       companyId: companyId || null,
       status: lead?.status || "New",
@@ -150,6 +158,25 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Phone Number (Optional)</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+1 (555) 123-4567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="subject">Subject (Optional)</Label>
+              <Input
+                id="subject"
+                placeholder="Enter subject or inquiry topic"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
               />
             </div>
             <div className="grid gap-2">

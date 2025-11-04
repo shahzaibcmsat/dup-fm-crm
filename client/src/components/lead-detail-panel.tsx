@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Mail, Clock, User, Edit, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Mail, Clock, User, Edit, ChevronDown, ChevronUp, Phone, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -88,6 +88,26 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
               <p className="text-sm" data-testid="text-detail-email">{lead.email}</p>
             </div>
           </div>
+
+          {lead.phone && (
+            <div>
+              <label className="text-xs text-muted-foreground">Phone Number</label>
+              <div className="flex items-center gap-2 mt-1">
+                <Phone className="w-4 h-4 text-muted-foreground" />
+                <p className="text-sm">{lead.phone}</p>
+              </div>
+            </div>
+          )}
+
+          {lead.subject && (
+            <div>
+              <label className="text-xs text-muted-foreground">Subject</label>
+              <div className="flex items-center gap-2 mt-1">
+                <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                <p className="text-sm font-medium">{lead.subject}</p>
+              </div>
+            </div>
+          )}
 
           {lead.leadDetails && (
             <div>

@@ -16,6 +16,8 @@ export const leads = pgTable("leads", {
   companyId: varchar("company_id").references(() => companies.id, { onDelete: "set null" }),
   clientName: text("client_name").notNull(),
   email: text("email").notNull(),
+  phone: text("phone"),
+  subject: text("subject"),
   leadDetails: text("lead_details"),
   status: text("status").notNull().default("New"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
