@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import { storage } from "./storage";
 import { insertLeadSchema, insertEmailSchema, insertCompanySchema } from "@shared/schema";
 import { sendEmail, isMicrosoftGraphConfigured, getAuthorizationUrl, exchangeCodeForTokens } from "./outlook";
-import { grammarFix } from "./groq";
+import { grammarFix, generateAutoReply } from "./groq";
 import { getAllConfig, saveConfigToFile, validateConfig } from "./config-manager";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -22,6 +22,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error: any) {
       console.error("Grammar fix error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // AI Auto-reply generation endpoint
+  app.post("/api/emails/generate-reply", async (req, res) => {
+    try {
+      const { leadId, currentDraft } = req.body;
+      
+      if (!leadId) {
+        return res.status(400).json({ message: "Lead ID is required" });
+      }
+
+      // Get lead details
+      const lead = await storage.getLead(leadId);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      // Get conversation history (emails for this lead)
+      const emails = await storage.getEmailsByLeadId(leadId);
+      
+      // Sort by sentAt (oldest first)
+      const conversationHistory = emails
+        .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime())
+        .map(email => ({
+          direction: email.direction as 'sent' | 'received',
+          subject: email.subject,
+          body: email.body,
+          timestamp: email.sentAt.toISOString()
+        }));
+
+      // Generate auto-reply
+      const result = await generateAutoReply({
+        leadName: lead.clientName,
+        leadEmail: lead.email,
+        leadDescription: lead.leadDetails || undefined,
+        conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
+        currentDraft: currentDraft || undefined,
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Auto-reply generation error:", error);
       res.status(500).json({ message: error.message });
     }
   });

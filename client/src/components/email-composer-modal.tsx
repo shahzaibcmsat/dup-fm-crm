@@ -30,6 +30,7 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
   const [body, setBody] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isCheckingGrammar, setIsCheckingGrammar] = useState(false);
+  const [isGeneratingReply, setIsGeneratingReply] = useState(false);
   const { toast } = useToast();
 
   // Auto-populate subject when replying to a received email
@@ -106,6 +107,48 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
     }
   };
 
+  const handleGenerateAutoReply = async () => {
+    if (!lead) return;
+
+    setIsGeneratingReply(true);
+    try {
+      const response = await fetch('/api/emails/generate-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId: lead.id,
+          currentDraft: body.trim() || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate reply');
+      }
+
+      const result = await response.json();
+      
+      // Set the generated content
+      if (result.subject && !subject.trim()) {
+        setSubject(result.subject);
+      }
+      setBody(result.body);
+      
+      toast({
+        title: "🤖 AI Reply Generated!",
+        description: "Review and edit the generated email before sending.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to generate reply",
+        description: error.message || "Unable to generate auto-reply. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingReply(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl" data-testid="modal-email-composer">
@@ -142,26 +185,49 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="body">Message</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleCheckGrammar}
-                disabled={isCheckingGrammar || isSending || !body.trim()}
-                className="h-8 text-xs"
-              >
-                {isCheckingGrammar ? (
-                  <>
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    Check Grammar
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateAutoReply}
+                  disabled={isGeneratingReply || isSending}
+                  className="h-8 text-xs"
+                  title="Generate AI-powered reply based on lead details and conversation history"
+                >
+                  {isGeneratingReply ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      AI Auto-Reply
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCheckGrammar}
+                  disabled={isCheckingGrammar || isSending || !body.trim()}
+                  className="h-8 text-xs"
+                >
+                  {isCheckingGrammar ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      Check Grammar
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
             <Textarea
               id="body"
