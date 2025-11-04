@@ -78,7 +78,7 @@ export async function generateAutoReply(params: {
   currentDraft?: string;
 }): Promise<AutoReplyResult> {
   const apiKey = getConfig('GROQ_API_KEY');
-  const model = getConfig('GROQ_MODEL') || "llama-3.3-70b-versatile";
+  const model = getConfig('GROQ_MODEL') || "llama-3.1-70b-versatile";
   
   if (!apiKey) {
     throw new Error("GROQ_API_KEY is not set on the server");
@@ -115,24 +115,29 @@ export async function generateAutoReply(params: {
   const context = contextParts.join('\n');
 
   const system =
-    "You are a professional business email assistant. Your task is to generate a well-crafted email reply based on the provided context. " +
+    "You are a professional business email assistant. Generate a well-crafted email reply.\n\n" +
+    "CRITICAL: You MUST respond with ONLY valid JSON in this exact format:\n" +
+    '{"subject": "your subject here", "body": "your email body here"}\n\n' +
+    "Rules:\n" +
     "- Read the lead description and conversation history carefully\n" +
-    "- If there's a draft already started, incorporate it and build upon it\n" +
+    "- If there's a draft already started, incorporate and build upon it\n" +
     "- Write a professional, friendly, and helpful response\n" +
     "- Keep the tone conversational but professional\n" +
     "- Be concise and clear\n" +
     "- Address any questions or concerns from previous emails\n" +
-    "- If this is the first contact, introduce yourself professionally and address the lead's needs\n" +
-    "- Return ONLY valid JSON: {\"subject\": string, \"body\": string}\n" +
-    "- The subject should be appropriate (use 'Re: ' prefix if replying to existing conversation)\n" +
-    "- The body should be the email content without signatures (user will add their own)";
+    "- If this is the first contact, introduce yourself professionally\n" +
+    "- Use 'Re: ' prefix in subject if replying to existing conversation\n" +
+    "- Do NOT include signatures (user will add their own)\n" +
+    "- Do NOT include any text outside the JSON structure\n" +
+    "- Do NOT use markdown, HTML, or any formatting in your response";
 
-  const user = `Generate a professional email reply based on this context:\n\n${context}`;
+  const user = `Generate a professional email reply based on this context:\n\n${context}\n\nRespond with ONLY the JSON object, nothing else.`;
 
   const completion = await groq.chat.completions.create({
     model: model,
     temperature: 0.7,
     max_tokens: 1000,
+    response_format: { type: "json_object" },
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -146,14 +151,20 @@ export async function generateAutoReply(params: {
   try {
     parsed = JSON.parse(content);
   } catch {
+    // Try to extract JSON from the response
     const match = content.match(/\{[\s\S]*\}/);
     if (match) {
-      try { parsed = JSON.parse(match[0]); } catch {}
+      try { 
+        parsed = JSON.parse(match[0]); 
+      } catch (e) {
+        console.error("Failed to parse extracted JSON:", match[0]);
+      }
     }
   }
 
   if (!parsed || typeof parsed.subject !== "string" || typeof parsed.body !== "string") {
-    throw new Error("Failed to generate auto-reply. Please try again.");
+    console.error("Invalid AI response:", content);
+    throw new Error("AI returned invalid format. Please try again.");
   }
 
   return { subject: parsed.subject, body: parsed.body };
