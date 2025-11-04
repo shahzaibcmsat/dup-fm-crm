@@ -26,17 +26,17 @@
 
   --card-border: 214 32% 91%;
 
-  --sidebar: 0 46% 39%; /* FMD Burgundy */
+  --sidebar: 100 48% 22%; /* FMD Green */
 
   --sidebar-foreground: 0 0% 98%;
 
-  --sidebar-border: 0 46% 32%;
+  --sidebar-border: 100 48% 18%;
 
   --sidebar-primary: 100 48% 22%; /* FMD Green */
 
   --sidebar-primary-foreground: 0 0% 98%;
 
-  --sidebar-accent: 0 46% 45%;
+  --sidebar-accent: 100 48% 28%;
 
   --sidebar-accent-foreground: 0 0% 98%;
 

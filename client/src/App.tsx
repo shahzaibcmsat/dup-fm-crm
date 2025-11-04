@@ -49,12 +49,9 @@ export default function App() {
           <div className="flex h-screen w-full">
             <AppSidebar />
             <div className="flex flex-col flex-1 overflow-hidden">
-              <header className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-fmd-burgundy to-fmd-burgundy-dark shadow-lg">
+              <header className="flex items-center justify-between px-4 py-4 border-b-2 border-white/20 bg-gradient-to-br from-green-800 via-green-900 to-green-950 shadow-xl">
                 <div className="flex items-center gap-4">
                   <SidebarTrigger className="text-white hover:bg-white/20" data-testid="button-sidebar-toggle" />
-                  <div className="bg-white px-3 py-1.5 rounded-lg shadow-md">
-                    <img src="/fmd-logo.png" alt="FMD Companies" className="h-7 object-contain" />
-                  </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <NotificationBell onNotificationClick={handleNotificationClick} />

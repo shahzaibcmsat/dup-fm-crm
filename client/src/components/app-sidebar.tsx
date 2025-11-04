@@ -53,14 +53,10 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-6 border-b-2 border-white/20 bg-gradient-to-br from-fmd-burgundy via-fmd-burgundy-dark to-fmd-black shadow-xl">
+      <SidebarHeader className="px-4 py-4 border-b-2 border-white/20 bg-gradient-to-br from-green-800 via-green-900 to-green-950 shadow-xl">
         <div className="flex items-center gap-4">
-          <div className="bg-white p-2.5 rounded-xl shadow-lg ring-2 ring-white/30 hover:ring-white/50 transition-all">
-            <img src="/fmd-logo.png" alt="FMD" className="h-12 w-auto object-contain" />
-          </div>
-          <div className="flex-1">
-            <h1 className="text-lg font-black text-white tracking-tight leading-tight drop-shadow-md">FMD COMPANIES</h1>
-            <p className="text-sm text-white/90 font-semibold tracking-wide">Sales CRM System</p>
+          <div className="bg-white p-2 rounded-xl shadow-lg ring-2 ring-white/30 hover:ring-white/50 transition-all">
+            <img src="/fmd-logo.png" alt="FMD" className="h-8 w-auto object-contain" />
           </div>
         </div>
       </SidebarHeader>
