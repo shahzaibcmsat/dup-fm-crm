@@ -115,36 +115,39 @@ export async function generateAutoReply(params: {
   const context = contextParts.join('\n');
 
   const system =
-    "You are a professional business email assistant. Generate a well-crafted email reply.\n\n" +
-    "CRITICAL: You MUST respond with ONLY valid JSON in this exact format:\n" +
-    '{"subject": "your subject here", "body": "your email body here"}\n\n' +
-    "Rules:\n" +
-    "- Read the lead description and conversation history carefully\n" +
-    "- If there's a draft already started, incorporate and build upon it\n" +
-    "- Write a professional, friendly, and helpful response\n" +
-    "- Keep the tone conversational but professional\n" +
+    "You are a professional business email assistant. Generate email replies in JSON format.\n\n" +
+    "You must respond with ONLY a valid JSON object with this EXACT structure:\n" +
+    '{"subject": "email subject line", "body": "email message content"}\n\n' +
+    "Email writing guidelines:\n" +
+    "- Read the provided lead information and conversation history\n" +
+    "- If a draft is provided, incorporate and expand on it\n" +
+    "- Write professionally but friendly\n" +
     "- Be concise and clear\n" +
-    "- Address any questions or concerns from previous emails\n" +
-    "- If this is the first contact, introduce yourself professionally\n" +
-    "- Use 'Re: ' prefix in subject if replying to existing conversation\n" +
-    "- Do NOT include signatures (user will add their own)\n" +
-    "- Do NOT include any text outside the JSON structure\n" +
-    "- Do NOT use markdown, HTML, or any formatting in your response";
+    "- Address previous questions/concerns if any\n" +
+    "- For replies, use 'Re: ' prefix in subject\n" +
+    "- Don't include email signatures\n\n" +
+    "IMPORTANT: Return ONLY the JSON object. No explanations, no markdown, no extra text.";
 
-  const user = `Generate a professional email reply based on this context:\n\n${context}\n\nRespond with ONLY the JSON object, nothing else.`;
+  const user = `Context for email reply:\n\n${context}\n\nReturn the JSON response now.`;
 
-  const completion = await groq.chat.completions.create({
-    model: model,
-    temperature: 0.7,
-    max_tokens: 1000,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-  });
+  let completion;
+  try {
+    completion = await groq.chat.completions.create({
+      model: model,
+      temperature: 0.7,
+      max_tokens: 1000,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    });
+  } catch (error: any) {
+    console.error("Groq API error:", error);
+    throw new Error(`Failed to call Groq API: ${error.message}`);
+  }
 
   const content = completion.choices?.[0]?.message?.content?.trim() || "";
+  console.log("Groq AI raw response:", content);
 
   // Try parse as JSON
   let parsed: AutoReplyResult | null = null;
@@ -156,14 +159,17 @@ export async function generateAutoReply(params: {
     if (match) {
       try { 
         parsed = JSON.parse(match[0]); 
+        console.log("Successfully extracted JSON from response");
       } catch (e) {
         console.error("Failed to parse extracted JSON:", match[0]);
       }
+    } else {
+      console.error("No JSON object found in response");
     }
   }
 
   if (!parsed || typeof parsed.subject !== "string" || typeof parsed.body !== "string") {
-    console.error("Invalid AI response:", content);
+    console.error("Invalid AI response format. Expected {subject: string, body: string}, got:", parsed);
     throw new Error("AI returned invalid format. Please try again.");
   }
 
