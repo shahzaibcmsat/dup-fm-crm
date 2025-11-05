@@ -51,18 +51,18 @@ export default function App() {
           <div className="flex h-screen w-full">
             <AppSidebar />
             <div className="flex flex-col flex-1 overflow-hidden">
-              <header className="flex items-center justify-between px-4 py-4 border-b-2 border-white/20 bg-gradient-to-br from-green-800 via-green-900 to-green-950 shadow-xl">
-                <div className="flex items-center gap-4">
-                  <SidebarTrigger className="text-white hover:bg-white/20" data-testid="button-sidebar-toggle" />
-                  <h1 className="text-4xl font-bold text-white tracking-tight">
+              <header className="flex items-center justify-between px-3 sm:px-4 py-3 sm:py-4 border-b-2 border-white/20 bg-gradient-to-br from-green-800 via-green-900 to-green-950 shadow-xl">
+                <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                  <SidebarTrigger className="text-white hover:bg-white/20 flex-shrink-0" data-testid="button-sidebar-toggle" />
+                  <h1 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight truncate">
                     FMD Companies Dashboard
                   </h1>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                   <NotificationBell onNotificationClick={handleNotificationClick} />
                 </div>
               </header>
-              <main className="flex-1 overflow-y-auto p-6">
+              <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
                 <div className="max-w-7xl mx-auto">
                   <Router />
                 </div>

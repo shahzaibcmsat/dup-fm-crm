@@ -285,33 +285,33 @@ export default function Dashboard() {
   const someSelected = selectedLeadIds.size > 0 && selectedLeadIds.size < filteredLeads.length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent">
             Overview of your leads and performance
           </h2>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {selectedLeadIds.size > 0 && (
             <>
               <Button
                 variant="outline"
                 onClick={handleAssignCompany}
                 disabled={bulkAssignCompanyMutation.isPending}
-                className="text-base border-fmd-green text-fmd-green hover:bg-fmd-green hover:text-white"
+                className="text-sm sm:text-base border-fmd-green text-fmd-green hover:bg-fmd-green hover:text-white"
               >
-                <Building2 className="w-5 h-5 mr-2" />
-                Assign Company ({selectedLeadIds.size})
+                <Building2 className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Assign Company </span>({selectedLeadIds.size})
               </Button>
               <Button
                 variant="destructive"
                 onClick={handleDeleteSelected}
                 disabled={bulkDeleteMutation.isPending}
-                className="text-base"
+                className="text-sm sm:text-base"
               >
-                <Trash2 className="w-5 h-5 mr-2" />
-                Delete {selectedLeadIds.size} Lead{selectedLeadIds.size !== 1 ? 's' : ''}
+                <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+                Delete {selectedLeadIds.size}
               </Button>
             </>
           )}
@@ -320,63 +320,63 @@ export default function Dashboard() {
               setEditingLead(null);
               setIsAddLeadOpen(true);
             }}
-            className="bg-fmd-green hover:bg-fmd-green-dark text-base"
+            className="bg-fmd-green hover:bg-fmd-green-dark text-sm sm:text-base"
           >
-            <Plus className="w-5 h-5 mr-2" />
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Add Lead
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="border-l-4 border-l-fmd-burgundy shadow-lg hover:shadow-xl transition-shadow">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-base text-muted-foreground font-medium">Total Leads</p>
-                <p className="text-4xl font-bold mt-2 text-fmd-burgundy" data-testid="stat-total-leads">{stats.total}</p>
+                <p className="text-sm sm:text-base text-muted-foreground font-medium">Total Leads</p>
+                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1 sm:mt-2 text-fmd-burgundy" data-testid="stat-total-leads">{stats.total}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-fmd-burgundy/10 flex items-center justify-center">
-                <Users className="w-6 h-6 text-fmd-burgundy" />
+              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-fmd-burgundy/10 flex items-center justify-center">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-fmd-burgundy" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-shadow">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-base text-muted-foreground font-medium">Active</p>
-                <p className="text-4xl font-bold mt-2 text-blue-600" data-testid="stat-active-leads">{stats.active}</p>
+                <p className="text-sm sm:text-base text-muted-foreground font-medium">Active</p>
+                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1 sm:mt-2 text-blue-600" data-testid="stat-active-leads">{stats.active}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <Clock className="w-6 h-6 text-blue-600" />
+              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-fmd-green shadow-lg hover:shadow-xl transition-shadow">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-base text-muted-foreground font-medium">Contacted</p>
-                <p className="text-4xl font-bold mt-2 text-fmd-green" data-testid="stat-contacted-leads">{stats.contacted}</p>
+                <p className="text-sm sm:text-base text-muted-foreground font-medium">Contacted</p>
+                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1 sm:mt-2 text-fmd-green" data-testid="stat-contacted-leads">{stats.contacted}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-fmd-green/10 flex items-center justify-center">
-                <Mail className="w-6 h-6 text-fmd-green" />
+              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-fmd-green/10 flex items-center justify-center">
+                <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-fmd-green" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-amber-500 shadow-lg hover:shadow-xl transition-shadow">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-base text-muted-foreground font-medium">Conversion</p>
-                <p className="text-4xl font-bold mt-2 text-amber-600" data-testid="stat-conversion-rate">{stats.conversion}%</p>
+                <p className="text-sm sm:text-base text-muted-foreground font-medium">Conversion</p>
+                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1 sm:mt-2 text-amber-600" data-testid="stat-conversion-rate">{stats.conversion}%</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-amber-600" />
@@ -386,24 +386,24 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
           <Input
             placeholder="Search by name, email, or details..."
-            className="pl-10 text-base h-11"
+            className="pl-9 sm:pl-10 text-sm sm:text-base h-10 sm:h-11"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             data-testid="input-search"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-5 h-5 text-muted-foreground" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground hidden sm:block" />
           <Select value={companyFilter} onValueChange={setCompanyFilter}>
-            <SelectTrigger className="w-48 text-base h-11" data-testid="select-company-filter">
+            <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base h-10 sm:h-11" data-testid="select-company-filter">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="text-base">
+            <SelectContent className="text-sm sm:text-base">
               <SelectItem value="all">All Companies</SelectItem>
               <SelectItem value="none">No Company</SelectItem>
               {companies.map((company) => (
@@ -417,10 +417,10 @@ export default function Dashboard() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48 text-base h-11" data-testid="select-filter">
+            <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base h-10 sm:h-11" data-testid="select-filter">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="text-base">
+            <SelectContent className="text-sm sm:text-base">
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="New">New</SelectItem>
               <SelectItem value="Contacted">Contacted</SelectItem>
