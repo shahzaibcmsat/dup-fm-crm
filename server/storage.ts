@@ -17,6 +17,7 @@ export interface IStorage {
   deleteLeads(ids: string[]): Promise<number>;
   getEmailsByLeadId(leadId: string): Promise<Email[]>;
   getEmailByMessageId(messageId: string): Promise<Email | undefined>;
+  getEmailByConversationId(conversationId: string): Promise<Email | undefined>;
   createEmail(email: InsertEmail): Promise<Email>;
   createLeads(leadsList: InsertLead[]): Promise<Lead[]>;
   getAllCompanies(): Promise<Company[]>;
@@ -158,6 +159,16 @@ export class DatabaseStorage implements IStorage {
 
   async getEmailByMessageId(messageId: string): Promise<Email | undefined> {
     const [email] = await db.select().from(emails).where(eq(emails.messageId, messageId));
+    return email || undefined;
+  }
+
+  async getEmailByConversationId(conversationId: string): Promise<Email | undefined> {
+    const [email] = await db
+      .select()
+      .from(emails)
+      .where(eq(emails.conversationId, conversationId))
+      .orderBy(desc(emails.sentAt))
+      .limit(1);
     return email || undefined;
   }
 

@@ -399,6 +399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get timestamp of last sync (or fetch all recent emails)
       const lastSyncTime = req.body.since || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       
+      console.log(`🔄 Manual sync requested since ${new Date(lastSyncTime).toLocaleString()}`);
       const newEmails = await fetchNewEmails(lastSyncTime);
       let savedCount = 0;
       let matchedCount = 0;
@@ -408,18 +409,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const conversationId = email.conversationId;
         const fromAddress = email.from?.emailAddress?.address;
         
-        if (!fromAddress) continue;
+        console.log(`  📧 Processing email from: ${fromAddress}`);
+        console.log(`     Subject: ${email.subject || '(No Subject)'}`);
+        console.log(`     Message ID: ${email.id}`);
+        
+        if (!fromAddress) {
+          console.log(`     ⚠️ No from address, skipping`);
+          continue;
+        }
 
         // Try to find a lead with this email address
         const lead = await storage.getLeadByEmail(fromAddress);
         
         if (lead) {
+          console.log(`     ✅ Matched to lead: ${lead.clientName} (${lead.id})`);
           matchedCount++;
           
           // Check if we already have this message
           const existing = await storage.getEmailByMessageId(email.id);
           
           if (!existing) {
+            console.log(`     💾 Saving new email to database...`);
             const emailData = insertEmailSchema.parse({
               leadId: lead.id,
               subject: email.subject || '(No Subject)',
@@ -439,9 +449,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateLeadStatus(lead.id, "Replied");
             
             // Add notification for this new reply
-            addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
-            console.log(`📧 Added notification for ${lead.clientName} - ${email.subject}`);
+            const notification = addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
+            console.log(`     � Created notification ${notification.id} for ${lead.clientName}`);
+          } else {
+            console.log(`     ℹ️ Email already exists in database, skipping`);
           }
+        } else {
+          console.log(`     ⚠️ No matching lead found for email: ${fromAddress}`);
         }
       }
 

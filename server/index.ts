@@ -146,39 +146,73 @@ function startEmailSyncJob() {
 
       for (const email of newEmails) {
         const fromAddress = email.from?.emailAddress?.address;
-        if (!fromAddress) continue;
+        log(`  📧 Processing email from: ${fromAddress}`);
+        log(`     Subject: ${email.subject || '(No Subject)'}`);
+        log(`     Message ID: ${email.id}`);
+        log(`     Conversation ID: ${email.conversationId || 'none'}`);
+        
+        if (!fromAddress) {
+          log(`     ⚠️ No from address, skipping`);
+          continue;
+        }
 
-        // Try to find a lead with this email address
-        const lead = await storage.getLeadByEmail(fromAddress);
+        // Check if we already have this message
+        const existing = await storage.getEmailByMessageId(email.id);
+        
+        if (existing) {
+          log(`     ℹ️ Email already exists in database, skipping`);
+          continue;
+        }
+
+        // Try to find the correct lead by matching conversation thread
+        let lead = null;
+        const conversationId = email.conversationId;
+        const inReplyToHeader = getInReplyToHeader(email);
+        
+        // First, try to match by conversation thread (most accurate)
+        if (conversationId) {
+          log(`     🔍 Looking for existing email with conversation ID: ${conversationId}`);
+          const relatedEmail = await storage.getEmailByConversationId(conversationId);
+          if (relatedEmail) {
+            log(`     ✅ Found related email in conversation, using lead: ${relatedEmail.leadId}`);
+            lead = await storage.getLead(relatedEmail.leadId);
+          }
+        }
+        
+        // If no match by conversation, try by email address
+        if (!lead) {
+          log(`     🔍 No conversation match, looking for lead by email address`);
+          lead = await storage.getLeadByEmail(fromAddress);
+        }
         
         if (lead) {
-          // Check if we already have this message
-          const existing = await storage.getEmailByMessageId(email.id);
+          log(`     ✅ Matched to lead: ${lead.clientName} (${lead.id})`);
+          log(`     💾 Saving new email to database...`);
           
-          if (!existing) {
-            const emailData = insertEmailSchema.parse({
-              leadId: lead.id,
-              subject: email.subject || '(No Subject)',
-              body: email.body?.content || '',
-              direction: 'received',
-              messageId: email.id,
-              conversationId: email.conversationId || null,
-              fromEmail: fromAddress,
-              toEmail: process.env.EMAIL_FROM_ADDRESS || null,
-              inReplyTo: getInReplyToHeader(email),
-            });
+          const emailData = insertEmailSchema.parse({
+            leadId: lead.id,
+            subject: email.subject || '(No Subject)',
+            body: email.body?.content || '',
+            direction: 'received',
+            messageId: email.id,
+            conversationId: conversationId || null,
+            fromEmail: fromAddress,
+            toEmail: process.env.EMAIL_FROM_ADDRESS || null,
+            inReplyTo: inReplyToHeader,
+          });
 
-            await storage.createEmail(emailData);
-            savedCount++;
-            
-            // Update lead status to "Replied" if they responded
-            await storage.updateLeadStatus(lead.id, 'Replied');
-            log(`📨 Saved reply from ${fromAddress} for lead ${lead.clientName}`);
-            
-            // Add notification for this new reply
-            const notification = addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
-            log(`🔔 Created notification ${notification.id} for ${lead.clientName}`);
-          }
+          await storage.createEmail(emailData);
+          savedCount++;
+          
+          // Update lead status to "Replied" if they responded
+          await storage.updateLeadStatus(lead.id, 'Replied');
+          log(`     📨 Saved reply from ${fromAddress} for lead ${lead.clientName}`);
+          
+          // Add notification for this new reply
+          const notification = addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
+          log(`     🔔 Created notification ${notification.id} for ${lead.clientName}`);
+        } else {
+          log(`     ⚠️ No matching lead found for email: ${fromAddress}`);
         }
       }
 
