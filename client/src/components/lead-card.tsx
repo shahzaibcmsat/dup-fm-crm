@@ -86,23 +86,23 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadC
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className={`font-semibold text-base truncate ${hasUnread ? 'text-red-900 font-bold' : 'text-fmd-black'}`} data-testid={`text-client-name-${lead.id}`}>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h3 className={`font-semibold text-lg truncate ${hasUnread ? 'text-red-900 font-bold' : 'text-fmd-black'}`} data-testid={`text-client-name-${lead.id}`}>
               {lead.clientName}
             </h3>
             {hasUnread && (
-              <Badge variant="destructive" className="animate-pulse text-sm font-bold px-3 py-1">
+              <Badge variant="destructive" className="animate-pulse text-base font-bold px-3 py-1">
                 🔔 {unread} NEW REPLY{unread > 1 ? 'IES' : ''}!
               </Badge>
             )}
             {(lead as any).company && (
-              <Badge variant="outline" className="text-xs gap-1">
-                <Building2 className="w-3 h-3" />
+              <Badge variant="outline" className="text-sm gap-1 bg-fmd-green/10 border-fmd-green text-fmd-green font-semibold px-3 py-1">
+                <Building2 className="w-4 h-4" />
                 {(lead as any).company.name}
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2 text-sm mb-2">
+          <div className="flex items-center gap-2 text-base mb-2">
             {lead.phone && (
               <span className="group relative inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-400">
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 to-green-400/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -130,18 +130,18 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadC
             </div>
           </div>
           {lead.subject && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <div className="flex items-center gap-2 text-base text-muted-foreground mb-2">
               <MessageSquare className="w-4 h-4 text-fmd-burgundy" />
               <span className="truncate font-medium">{lead.subject}</span>
             </div>
           )}
           {lead.leadDetails && (
-            <p className={`text-sm line-clamp-2 mb-2 ${hasUnread ? 'text-red-700 font-medium' : 'text-muted-foreground'}`}>
+            <p className={`text-base line-clamp-2 mb-2 ${hasUnread ? 'text-red-700 font-medium' : 'text-muted-foreground'}`}>
               {lead.leadDetails}
             </p>
           )}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="w-4 h-4" />
             <span>
               Added {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })} 
               <span className="mx-1">•</span>
@@ -152,7 +152,7 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadC
         <div className="flex flex-col items-end gap-2">
           {onStatusChange ? (
             <div className="relative w-full">
-              <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-4 h-9 rounded-lg font-bold text-sm shadow-md ${statusConfig[lead.status]?.ring || ''} transition-all hover:shadow-lg flex items-center justify-center`}>
+              <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-4 h-10 rounded-lg font-bold text-base shadow-md ${statusConfig[lead.status]?.ring || ''} transition-all hover:shadow-lg flex items-center justify-center`}>
                 {lead.status}
               </div>
               <Select 
@@ -168,7 +168,7 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadC
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent onClick={(e) => e.stopPropagation()}>
+                <SelectContent onClick={(e) => e.stopPropagation()} className="text-base">
                   {statusOptions.map((status) => {
                     const config = statusConfig[status];
                     return (
@@ -189,20 +189,20 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadC
               </Select>
             </div>
           ) : (
-            <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-4 h-9 rounded-lg font-bold text-sm shadow-md ${statusConfig[lead.status]?.ring || ''} flex items-center justify-center w-full`} data-testid={`badge-status-${lead.id}`}>
+            <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-4 h-10 rounded-lg font-bold text-base shadow-md ${statusConfig[lead.status]?.ring || ''} flex items-center justify-center w-full`} data-testid={`badge-status-${lead.id}`}>
               {lead.status}
             </div>
           )}
           <Button 
             size="sm" 
-            className={`h-9 w-full font-medium bg-green-700 hover:bg-green-800 text-white ${hasUnread ? 'animate-pulse ring-2 ring-green-400' : ''}`}
+            className={`h-10 w-full font-medium text-base bg-green-700 hover:bg-green-800 text-white ${hasUnread ? 'animate-pulse ring-2 ring-green-400' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               onViewDetails(lead);
             }}
             data-testid={`button-view-lead-${lead.id}`}
           >
-            <Mail className="w-3.5 h-3.5 mr-2" />
+            <Mail className="w-4 h-4 mr-2" />
             View Lead
           </Button>
         </div>

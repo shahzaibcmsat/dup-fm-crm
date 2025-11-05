@@ -45,6 +45,8 @@ export default function Dashboard() {
   const [companyFilter, setCompanyFilter] = useState("all");
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isAssignCompanyDialogOpen, setIsAssignCompanyDialogOpen] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const leadsPerPage = 10;
   const { toast } = useToast();
@@ -145,6 +147,30 @@ export default function Dashboard() {
     },
   });
 
+  const bulkAssignCompanyMutation = useMutation({
+    mutationFn: async ({ leadIds, companyId }: { leadIds: string[]; companyId: string | null }) => {
+      return apiRequest("POST", `/api/leads/bulk-assign-company`, { leadIds, companyId });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/companies'] });
+      toast({
+        title: "Company assigned",
+        description: `${data.count || 'Leads'} lead(s) assigned successfully.`,
+      });
+      setSelectedLeadIds(new Set());
+      setIsAssignCompanyDialogOpen(false);
+      setSelectedCompanyId("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to assign company",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleReply = (lead: Lead) => {
     setReplyingToLead(lead);
     setIsComposerOpen(true);
@@ -191,6 +217,26 @@ export default function Dashboard() {
       await bulkDeleteMutation.mutateAsync(Array.from(selectedLeadIds));
     }
     setIsDeleteDialogOpen(false);
+  };
+
+  const handleAssignCompany = () => {
+    if (selectedLeadIds.size === 0) return;
+    setIsAssignCompanyDialogOpen(true);
+  };
+
+  const confirmAssignCompany = async () => {
+    if (selectedLeadIds.size > 0) {
+      const companyIdToAssign = selectedCompanyId === "__none__" ? null : selectedCompanyId;
+      console.log("🔵 Assigning company:", {
+        leadIds: Array.from(selectedLeadIds),
+        companyId: companyIdToAssign,
+        selectedCompanyId
+      });
+      await bulkAssignCompanyMutation.mutateAsync({
+        leadIds: Array.from(selectedLeadIds),
+        companyId: companyIdToAssign,
+      });
+    }
   };
 
   // Get the last received email's subject for the lead being replied to
@@ -242,32 +288,44 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent">
-            FMD Dashboard
+          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent">
+            FMD Companies Dashboard
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-base text-muted-foreground mt-1">
             Overview of your leads and performance
           </p>
         </div>
         <div className="flex gap-2">
           {selectedLeadIds.size > 0 && (
-            <Button
-              variant="destructive"
-              onClick={handleDeleteSelected}
-              disabled={bulkDeleteMutation.isPending}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete {selectedLeadIds.size} Lead{selectedLeadIds.size !== 1 ? 's' : ''}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={handleAssignCompany}
+                disabled={bulkAssignCompanyMutation.isPending}
+                className="text-base border-fmd-green text-fmd-green hover:bg-fmd-green hover:text-white"
+              >
+                <Building2 className="w-5 h-5 mr-2" />
+                Assign Company ({selectedLeadIds.size})
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteSelected}
+                disabled={bulkDeleteMutation.isPending}
+                className="text-base"
+              >
+                <Trash2 className="w-5 h-5 mr-2" />
+                Delete {selectedLeadIds.size} Lead{selectedLeadIds.size !== 1 ? 's' : ''}
+              </Button>
+            </>
           )}
           <Button 
             onClick={() => {
               setEditingLead(null);
               setIsAddLeadOpen(true);
             }}
-            className="bg-fmd-green hover:bg-fmd-green-dark"
+            className="bg-fmd-green hover:bg-fmd-green-dark text-base"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-5 h-5 mr-2" />
             Add Lead
           </Button>
         </div>
@@ -278,8 +336,8 @@ export default function Dashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground font-medium">Total Leads</p>
-                <p className="text-3xl font-bold mt-2 text-fmd-burgundy" data-testid="stat-total-leads">{stats.total}</p>
+                <p className="text-base text-muted-foreground font-medium">Total Leads</p>
+                <p className="text-4xl font-bold mt-2 text-fmd-burgundy" data-testid="stat-total-leads">{stats.total}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-fmd-burgundy/10 flex items-center justify-center">
                 <Users className="w-6 h-6 text-fmd-burgundy" />
@@ -292,8 +350,8 @@ export default function Dashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground font-medium">Active</p>
-                <p className="text-3xl font-bold mt-2 text-blue-600" data-testid="stat-active-leads">{stats.active}</p>
+                <p className="text-base text-muted-foreground font-medium">Active</p>
+                <p className="text-4xl font-bold mt-2 text-blue-600" data-testid="stat-active-leads">{stats.active}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
                 <Clock className="w-6 h-6 text-blue-600" />
@@ -306,8 +364,8 @@ export default function Dashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground font-medium">Contacted</p>
-                <p className="text-3xl font-bold mt-2 text-fmd-green" data-testid="stat-contacted-leads">{stats.contacted}</p>
+                <p className="text-base text-muted-foreground font-medium">Contacted</p>
+                <p className="text-4xl font-bold mt-2 text-fmd-green" data-testid="stat-contacted-leads">{stats.contacted}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-fmd-green/10 flex items-center justify-center">
                 <Mail className="w-6 h-6 text-fmd-green" />
@@ -320,8 +378,8 @@ export default function Dashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground font-medium">Conversion</p>
-                <p className="text-3xl font-bold mt-2 text-amber-600" data-testid="stat-conversion-rate">{stats.conversion}%</p>
+                <p className="text-base text-muted-foreground font-medium">Conversion</p>
+                <p className="text-4xl font-bold mt-2 text-amber-600" data-testid="stat-conversion-rate">{stats.conversion}%</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-amber-600" />
@@ -333,28 +391,28 @@ export default function Dashboard() {
 
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
             placeholder="Search by name, email, or details..."
-            className="pl-10"
+            className="pl-10 text-base h-11"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             data-testid="input-search"
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground" />
+          <Filter className="w-5 h-5 text-muted-foreground" />
           <Select value={companyFilter} onValueChange={setCompanyFilter}>
-            <SelectTrigger className="w-48" data-testid="select-company-filter">
+            <SelectTrigger className="w-48 text-base h-11" data-testid="select-company-filter">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="text-base">
               <SelectItem value="all">All Companies</SelectItem>
               <SelectItem value="none">No Company</SelectItem>
               {companies.map((company) => (
                 <SelectItem key={company.id} value={company.id}>
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-3 h-3" />
+                    <Building2 className="w-4 h-4" />
                     {company.name}
                   </div>
                 </SelectItem>
@@ -362,10 +420,10 @@ export default function Dashboard() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48" data-testid="select-filter">
+            <SelectTrigger className="w-48 text-base h-11" data-testid="select-filter">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="text-base">
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="New">New</SelectItem>
               <SelectItem value="Contacted">Contacted</SelectItem>
@@ -382,7 +440,7 @@ export default function Dashboard() {
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-fmd-black">All Leads</h2>
+          <h2 className="text-2xl font-semibold text-fmd-black">All Leads</h2>
           {filteredLeads.length > 0 && (
             <div className="flex items-center gap-3">
               <Checkbox
@@ -391,7 +449,7 @@ export default function Dashboard() {
                 aria-label="Select all leads"
                 className={someSelected ? "data-[state=checked]:bg-primary/50" : ""}
               />
-              <p className="text-sm text-muted-foreground" data-testid="text-result-count">
+              <p className="text-base text-muted-foreground" data-testid="text-result-count">
                 {selectedLeadIds.size > 0 
                   ? `${selectedLeadIds.size} of ${filteredLeads.length} selected`
                   : `${filteredLeads.length} lead${filteredLeads.length !== 1 ? 's' : ''}`}
@@ -408,11 +466,11 @@ export default function Dashboard() {
           <Card>
             <CardContent className="p-12 text-center">
               <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">No leads yet</h3>
-              <p className="text-sm text-muted-foreground mb-4">
+              <h3 className="text-xl font-medium mb-2">No leads yet</h3>
+              <p className="text-base text-muted-foreground mb-4">
                 Start by importing your leads from Excel or CSV
               </p>
-              <Button asChild data-testid="button-get-started">
+              <Button asChild data-testid="button-get-started" className="text-base">
                 <a href="/import">Get Started</a>
               </Button>
             </CardContent>
@@ -420,7 +478,7 @@ export default function Dashboard() {
         ) : filteredLeads.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 No leads match your filters. Try adjusting your search or filters.
               </p>
             </CardContent>
@@ -558,6 +616,45 @@ export default function Dashboard() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isAssignCompanyDialogOpen} onOpenChange={setIsAssignCompanyDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign Company to Leads</AlertDialogTitle>
+            <AlertDialogDescription>
+              Select a company to assign to {selectedLeadIds.size} selected lead{selectedLeadIds.size !== 1 ? 's' : ''}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+              <SelectTrigger className="w-full text-base h-11">
+                <SelectValue placeholder="Select a company..." />
+              </SelectTrigger>
+              <SelectContent className="text-base">
+                <SelectItem value="__none__">None (Remove company)</SelectItem>
+                {companies.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      {company.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedCompanyId("")}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmAssignCompany}
+              disabled={bulkAssignCompanyMutation.isPending || !selectedCompanyId}
+              className="bg-fmd-green text-white hover:bg-fmd-green-dark"
+            >
+              {bulkAssignCompanyMutation.isPending ? "Assigning..." : "Assign Company"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

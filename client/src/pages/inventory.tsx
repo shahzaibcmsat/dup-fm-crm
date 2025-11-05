@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Download, Plus, Trash2, Database, Bold, Type, Palette, FolderPlus, FolderMinus } from "lucide-react";
+import { Upload, Download, Plus, Trash2, Database, Bold, Type, Palette, FolderPlus, FolderMinus, Search, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -42,6 +42,7 @@ export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [fontSize, setFontSize] = useState("14");
   const [cellColor, setCellColor] = useState("#ffffff");
+  const [searchQuery, setSearchQuery] = useState("");
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [showRemoveCategoryDialog, setShowRemoveCategoryDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -64,11 +65,25 @@ export default function InventoryPage() {
     return Array.from(cats).sort();
   }, [inventory]);
 
-  // Filter data based on active tab
+  // Filter data based on active tab and search query
   const filteredInventory = useMemo(() => {
-    if (activeTab === "all") return inventory;
-    return inventory.filter(item => item.productHeading === activeTab);
-  }, [inventory, activeTab]);
+    let filtered = activeTab === "all" ? inventory : inventory.filter(item => item.productHeading === activeTab);
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.product?.toLowerCase().includes(query) ||
+        item.productHeading?.toLowerCase().includes(query) ||
+        item.boxes?.toLowerCase().includes(query) ||
+        item.sqFtPerBox?.toLowerCase().includes(query) ||
+        item.totalSqFt?.toLowerCase().includes(query) ||
+        item.notes?.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [inventory, activeTab, searchQuery]);
 
   // Column definitions
   const columnDefs = useMemo<ColDef[]>(
@@ -214,7 +229,17 @@ export default function InventoryPage() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      const response = await fetch("/api/inventory/import", {
+      
+      // Build URL with category as query parameter
+      let url = "/api/inventory/import";
+      if (activeTab !== "all") {
+        url += `?category=${encodeURIComponent(activeTab)}`;
+      }
+      
+      console.log(`🔵 CLIENT: Importing with URL: ${url}`);
+      console.log(`🔵 CLIENT: Active tab: "${activeTab}"`);
+      
+      const response = await fetch(url, {
         method: "POST",
         body: formData,
       });
@@ -226,7 +251,11 @@ export default function InventoryPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
-      toast({ title: "Import successful" });
+      toast({ 
+        title: activeTab !== "all" 
+          ? `Import successful - items added to "${activeTab}"` 
+          : "Import successful"
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -721,20 +750,20 @@ export default function InventoryPage() {
   };
 
   return (
-    <div className="h-screen flex p-6 gap-4">
+    <div className="h-screen flex flex-col lg:flex-row p-2 sm:p-4 lg:p-6 gap-2 sm:gap-4">
       {/* Vertical Tabs Sidebar */}
-      <div className="w-64 flex-shrink-0 bg-card rounded-lg border p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Categories</h2>
+      <div className="w-full lg:w-64 flex-shrink-0 bg-card rounded-lg border p-2 sm:p-4 max-h-48 lg:max-h-full overflow-y-auto">
+        <div className="flex items-center justify-between mb-2 sm:mb-4">
+          <h2 className="text-base sm:text-lg font-semibold">Categories</h2>
           <div className="flex gap-1">
             <Button
               onClick={() => setShowAddCategoryDialog(true)}
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-7 w-7 sm:h-8 sm:w-8"
               title="Add Category"
             >
-              <FolderPlus className="w-4 h-4" />
+              <FolderPlus className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
             <Button
               onClick={() => {
@@ -751,23 +780,23 @@ export default function InventoryPage() {
               }}
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-7 w-7 sm:h-8 sm:w-8"
               title="Remove Category"
             >
-              <FolderMinus className="w-4 h-4" />
+              <FolderMinus className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
           </div>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0">
           <button
             onClick={() => setActiveTab("all")}
-            className={`w-full text-left rounded-full px-4 py-3 transition-colors ${
+            className={`whitespace-nowrap flex-shrink-0 text-left rounded-full px-3 sm:px-4 py-2 sm:py-3 transition-colors ${
               activeTab === "all"
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent"
             }`}
           >
-            <span className="font-medium">All ({inventory.length})</span>
+            <span className="font-medium text-xs sm:text-sm">All ({inventory.length})</span>
           </button>
           {categories.map(category => {
             const count = inventory.filter(i => i.productHeading === category).length;
@@ -777,13 +806,13 @@ export default function InventoryPage() {
                 key={category}
                 onClick={() => setActiveTab(category)}
                 title={category}
-                className={`w-full text-left rounded-full px-4 py-3 transition-colors ${
+                className={`whitespace-nowrap flex-shrink-0 text-left rounded-full px-3 sm:px-4 py-2 sm:py-3 transition-colors ${
                   activeTab === category
                     ? "bg-primary text-primary-foreground"
                     : "hover:bg-accent"
                 }`}
               >
-                <span className="font-medium text-sm">{shortName} ({count})</span>
+                <span className="font-medium text-xs sm:text-sm">{shortName} ({count})</span>
               </button>
             );
           })}
@@ -791,24 +820,24 @@ export default function InventoryPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col space-y-4 min-w-0">
-        <div className="flex items-center justify-between">
+      <div className="flex-1 flex flex-col space-y-2 sm:space-y-4 min-w-0 overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Inventory</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Inventory</h1>
             {inventory.length === 0 && (
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 ⚠️ Database not migrated yet. Click "Migrate Database" first.
               </p>
             )}
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button onClick={handleAddRow} size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Row
+          <div className="flex gap-1 sm:gap-2 flex-wrap">
+            <Button onClick={handleAddRow} size="sm" className="text-xs sm:text-sm h-8 sm:h-9">
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Add New Row</span>
             </Button>
-            <Button onClick={handleDeleteSelected} variant="destructive" size="sm">
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
+            <Button onClick={handleDeleteSelected} variant="destructive" size="sm" className="text-xs sm:text-sm h-8 sm:h-9">
+              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Delete</span>
             </Button>
             <input
               ref={fileInputRef}
@@ -821,59 +850,82 @@ export default function InventoryPage() {
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
               size="sm"
+              className="text-xs sm:text-sm h-8 sm:h-9"
             >
-              <Upload className="w-4 h-4 mr-2" />
-              Import
+              <Upload className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Import</span>
             </Button>
-            <Button onClick={handleExport} variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Export
+            <Button onClick={handleExport} variant="outline" size="sm" className="text-xs sm:text-sm h-8 sm:h-9">
+              <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Export</span>
             </Button>
           </div>
         </div>
 
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search inventory..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10 h-9 sm:h-10"
+          />
+          {searchQuery && (
+            <Button
+              onClick={() => setSearchQuery("")}
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+
         {/* Formatting Toolbar */}
-        <div className="flex items-center gap-3 p-3 bg-muted rounded-lg flex-wrap">
-          <Label className="text-sm font-semibold">Format:</Label>
-          <Button onClick={handleMakeBold} variant="outline" size="sm">
-            <Bold className="w-4 h-4 mr-2" />
-            Toggle Bold
+        <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-muted rounded-lg flex-wrap overflow-x-auto">
+          <Label className="text-xs sm:text-sm font-semibold">Format:</Label>
+          <Button onClick={handleMakeBold} variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
+            <Bold className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Toggle Bold</span>
           </Button>
           <div className="flex items-center gap-2">
-            <Label htmlFor="fontSize" className="text-sm">Size:</Label>
+            <Label htmlFor="fontSize" className="text-xs sm:text-sm">Size:</Label>
             <Input
               id="fontSize"
               type="number"
               value={fontSize}
               onChange={(e) => setFontSize(e.target.value)}
-              className="w-16 h-8"
+              className="w-12 sm:w-16 h-7 sm:h-8 text-xs sm:text-sm"
               min="10"
               max="32"
             />
-            <Button onClick={handleChangeFontSize} variant="outline" size="sm">
-              <Type className="w-4 h-4" />
+            <Button onClick={handleChangeFontSize} variant="outline" size="sm" className="h-7 sm:h-8 w-7 sm:w-auto px-2">
+              <Type className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Label htmlFor="cellColor" className="text-sm">Color:</Label>
+            <Label htmlFor="cellColor" className="text-xs sm:text-sm">Color:</Label>
             <Input
               id="cellColor"
               type="color"
               value={cellColor}
               onChange={(e) => setCellColor(e.target.value)}
-              className="w-12 h-8 p-1"
+              className="w-10 sm:w-12 h-7 sm:h-8 p-1"
             />
-            <Button onClick={handleApplyColor} variant="outline" size="sm">
-              <Palette className="w-4 h-4" />
+            <Button onClick={handleApplyColor} variant="outline" size="sm" className="h-7 sm:h-8 w-7 sm:w-auto px-2">
+              <Palette className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
           </div>
-          <Button onClick={handleRemoveFormatting} variant="outline" size="sm">
+          <Button onClick={handleRemoveFormatting} variant="outline" size="sm" className="h-7 sm:h-8 text-xs sm:text-sm">
             Clear
           </Button>
         </div>
 
         {/* Grid Content */}
-        <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 300px)', width: '100%' }}>
+        <div className="ag-theme-alpine flex-1 min-h-0" style={{ height: '100%', width: '100%' }}>
           <AgGridReact
             ref={gridRef}
             rowData={filteredInventory}
@@ -894,8 +946,9 @@ export default function InventoryPage() {
           />
         </div>
 
-        <div className="text-sm text-muted-foreground">
-          <p>💡 Tips: Select rows with checkboxes • Click cells to edit • Use formatting toolbar above • Copy/paste from Excel</p>
+        <div className="text-xs sm:text-sm text-muted-foreground px-1">
+          <p className="hidden sm:block">💡 Tips: Select rows with checkboxes • Click cells to edit • Use formatting toolbar above • Copy/paste from Excel</p>
+          <p className="sm:hidden">💡 Select rows • Edit cells • Format • Copy/paste</p>
         </div>
       </div>
 

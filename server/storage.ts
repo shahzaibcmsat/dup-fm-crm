@@ -12,6 +12,7 @@ export interface IStorage {
   createLead(lead: InsertLead): Promise<Lead>;
   updateLead(id: string, lead: InsertLead): Promise<Lead | undefined>;
   updateLeadStatus(id: string, status: string): Promise<Lead | undefined>;
+  updateLeadCompany(id: string, companyId: string | null): Promise<Lead | undefined>;
   deleteLead(id: string): Promise<boolean>;
   deleteLeads(ids: string[]): Promise<number>;
   getEmailsByLeadId(leadId: string): Promise<Email[]>;
@@ -113,6 +114,17 @@ export class DatabaseStorage implements IStorage {
       .set({ status, updatedAt: new Date() })
       .where(eq(leads.id, id))
       .returning();
+    return lead || undefined;
+  }
+
+  async updateLeadCompany(id: string, companyId: string | null): Promise<Lead | undefined> {
+    console.log(`💾 Updating lead ${id} with companyId: ${companyId}`);
+    const [lead] = await db
+      .update(leads)
+      .set({ companyId, updatedAt: new Date() })
+      .where(eq(leads.id, id))
+      .returning();
+    console.log(`💾 Lead updated:`, lead);
     return lead || undefined;
   }
 

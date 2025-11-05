@@ -63,24 +63,24 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sm font-semibold">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => {
                 const isFMDDashboard = item.title === "FMD Dashboard";
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={location === item.url}>
+                    <SidebarMenuButton asChild isActive={location === item.url} className="text-base py-2.5">
                       <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
                         <div className="relative">
-                          <item.icon className="w-4 h-4" />
+                          <item.icon className="w-5 h-5" />
                           {isFMDDashboard && unreadTotal > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] leading-none rounded-full px-1.5 py-0.5 shadow">
+                            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs leading-none rounded-full px-1.5 py-0.5 shadow font-bold">
                               {unreadTotal > 9 ? '9+' : unreadTotal}
                             </span>
                           )}
                         </div>
-                        <span>{item.title}</span>
+                        <span className="font-medium">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -92,30 +92,30 @@ export function AppSidebar() {
 
         <SidebarGroup>
           <div className="flex items-center justify-between px-2 py-1">
-            <SidebarGroupLabel>FMD Companies</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-sm font-semibold">FMD Companies</SidebarGroupLabel>
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6"
+              className="h-7 w-7"
               onClick={() => setIsAddCompanyOpen(true)}
               data-testid="button-add-company"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-5 w-5" />
             </Button>
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
               {companies.length === 0 ? (
-                <div className="px-2 py-2 text-xs text-muted-foreground">
+                <div className="px-2 py-2 text-sm text-muted-foreground">
                   No companies yet
                 </div>
               ) : (
                 companies.map((company) => (
                   <SidebarMenuItem key={company.id}>
-                    <SidebarMenuButton asChild isActive={location === `/companies/${company.id}`}>
+                    <SidebarMenuButton asChild isActive={location === `/companies/${company.id}`} className="text-base py-2.5">
                       <Link href={`/companies/${company.id}`} data-testid={`link-company-${company.id}`}>
-                        <Building2 className="w-4 h-4" />
-                        <span>{company.name}</span>
+                        <Building2 className="w-5 h-5" />
+                        <span className="font-medium">{company.name}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -126,14 +126,14 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Inventory</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sm font-semibold">Inventory</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === inventoryItem.url}>
+                <SidebarMenuButton asChild isActive={location === inventoryItem.url} className="text-base py-2.5">
                   <Link href={inventoryItem.url}>
-                    <inventoryItem.icon className="w-4 h-4" />
-                    <span>{inventoryItem.title}</span>
+                    <inventoryItem.icon className="w-5 h-5" />
+                    <span className="font-medium">{inventoryItem.title}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -143,8 +143,8 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="p-4 border-t bg-fmd-green/5">
         <div className="flex items-center gap-2">
-          <div className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse"></div>
-          <div className="text-xs text-white font-medium">
+          <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></div>
+          <div className="text-sm text-white font-medium">
             FMD Sales CRM Created by <a href="https://napollo.net/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 font-semibold hover:underline">Napollo</a>.
           </div>
         </div>

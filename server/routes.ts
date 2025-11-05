@@ -267,6 +267,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/leads/bulk-assign-company", async (req, res) => {
+    try {
+      const { leadIds, companyId } = req.body;
+      console.log("📋 Bulk assign company request:", { leadIds, companyId });
+      
+      if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+        return res.status(400).json({ message: "Lead IDs array is required" });
+      }
+      
+      // Update all leads with the company ID (or null to remove)
+      const updatePromises = leadIds.map(async (leadId) => {
+        console.log(`  Updating lead ${leadId} with companyId: ${companyId}`);
+        const result = await storage.updateLeadCompany(leadId, companyId || null);
+        console.log(`  Updated lead ${leadId}:`, result);
+        return result;
+      });
+      
+      const results = await Promise.all(updatePromises);
+      console.log("✅ All leads updated:", results.length);
+      
+      res.json({ 
+        message: `${leadIds.length} lead(s) assigned to company successfully`,
+        count: leadIds.length
+      });
+    } catch (error: any) {
+      console.error("❌ Error assigning company:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/leads/:id/send-email", async (req, res) => {
     try {
       const lead = await storage.getLead(req.params.id);
@@ -821,6 +851,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
+      // Get the target category from query parameter (if specified)
+      const targetCategory = req.query.category as string | undefined || null;
+      
+      // Debug logging
+      console.log(`\n========== INVENTORY IMPORT DEBUG ==========`);
+      console.log(`📁 Query params:`, req.query);
+      console.log(`📁 Target category: "${targetCategory}"`);
+      console.log(`📁 Is targetCategory truthy?`, !!targetCategory);
+      console.log(`📁 Target category type:`, typeof targetCategory);
+      console.log(`===========================================\n`);
+
       const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
@@ -829,6 +870,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📊 Processing ${rawData.length} rows from inventory Excel file`);
 
       const items: any[] = [];
+      // IMPORTANT: If targetCategory is specified, NEVER use currentHeading from Excel
+      // If no targetCategory, start with null and let Excel headings populate it
       let currentHeading: string | null = null;
 
       for (let i = 0; i < rawData.length; i++) {
@@ -852,18 +895,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
-        // Check if this is a heading row (no boxes/sq ft data, likely all caps or bold text)
+        // Parse data values first
         const boxes = getColumnValue(["Boxes", "boxes", "BOXES"]);
         const sqFtBox = getColumnValue(["Sq Ft/box", "sq_ft_box", "Sq Ft/Box", "SQ FT/BOX"]);
-        
-        // If product exists but no numeric data, treat as heading
-        if (!boxes && !sqFtBox) {
-          currentHeading = product;
-          console.log(`📋 Section Header: ${currentHeading}`);
-          continue;
+
+        // If target category IS specified, skip ALL heading rows (don't process them at all)
+        if (targetCategory) {
+          // Skip rows that look like headings (no data)
+          if (!boxes && !sqFtBox) {
+            console.log(`⏭️  [TARGET MODE] Skipping heading row: ${product}`);
+            continue;
+          }
+        }
+        // If NO target category, use Excel heading logic
+        else {
+          // If product exists but no numeric data, treat as heading
+          if (!boxes && !sqFtBox) {
+            currentHeading = product;
+            console.log(`📋 [EXCEL MODE] Section Header: ${currentHeading}`);
+            continue;
+          }
         }
 
-        // Parse boxes value, keeping as string to handle empty/invalid values
         const boxesValue = boxes || null;
         const sqFtBoxValue = sqFtBox || null;
         const totalSqFt = getColumnValue(["Tot Sq Ft", "total_sq_ft", "Total Sq Ft", "TOT SQ FT"]) || null;
@@ -877,8 +930,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           productName = product.replace(/\s*\([^)]+\)\s*/g, '').trim();
         }
 
+        // CRITICAL: If targetCategory is specified, ALWAYS use it. Never use currentHeading.
+        // Only use currentHeading if NO targetCategory was specified
+        let finalCategory: string | null;
+        if (targetCategory) {
+          finalCategory = targetCategory;  // Always use target
+        } else {
+          finalCategory = currentHeading;  // Use Excel heading
+        }
+
         const item = {
-          productHeading: currentHeading,
+          productHeading: finalCategory,
           product: productName,
           boxes: boxesValue,
           sqFtPerBox: sqFtBoxValue,
@@ -886,7 +948,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           notes: notes,
         };
 
-        console.log(`✅ Row ${rowNumber}: ${item.product}${item.productHeading ? ` [${item.productHeading}]` : ''}`);
+        console.log(`✅ Row ${rowNumber}: "${item.product}" → Category: "${item.productHeading}" ${targetCategory ? '[FORCED]' : '[FROM EXCEL]'}`);
         items.push(item);
       }
 
