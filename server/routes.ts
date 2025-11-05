@@ -412,50 +412,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`  📧 Processing email from: ${fromAddress}`);
         console.log(`     Subject: ${email.subject || '(No Subject)'}`);
         console.log(`     Message ID: ${email.id}`);
+        console.log(`     Conversation ID: ${conversationId || 'none'}`);
         
         if (!fromAddress) {
-          console.log(`     ⚠️ No from address, skipping`);
+          console.log(`     No from address, skipping`);
           continue;
         }
 
-        // Try to find a lead with this email address
-        const lead = await storage.getLeadByEmail(fromAddress);
+        // Check if we already have this message
+        const existing = await storage.getEmailByMessageId(email.id);
+        
+        if (existing) {
+          console.log(`     Email already exists in database, skipping`);
+          continue;
+        }
+
+        // Try to find the correct lead by matching conversation thread
+        let lead = null;
+        const inReplyToHeader = getInReplyToHeader(email);
+        
+        // First, try to match by conversation thread (most accurate)
+        if (conversationId) {
+          console.log(`     Looking for existing email with conversation ID: ${conversationId}`);
+          const relatedEmail = await storage.getEmailByConversationId(conversationId);
+          if (relatedEmail) {
+            console.log(`     Found related email in conversation, using lead: ${relatedEmail.leadId}`);
+            lead = await storage.getLead(relatedEmail.leadId);
+            matchedCount++;
+          }
+        }
+        
+        // If no match by conversation, try by email address
+        if (!lead) {
+          console.log(`     No conversation match, looking for lead by email address`);
+          lead = await storage.getLeadByEmail(fromAddress);
+          if (lead) {
+            matchedCount++;
+          }
+        }
         
         if (lead) {
-          console.log(`     ✅ Matched to lead: ${lead.clientName} (${lead.id})`);
-          matchedCount++;
+          console.log(`     Matched to lead: ${lead.clientName} (${lead.id})`);
+          console.log(`     Saving new email to database...`);
           
-          // Check if we already have this message
-          const existing = await storage.getEmailByMessageId(email.id);
-          
-          if (!existing) {
-            console.log(`     💾 Saving new email to database...`);
-            const emailData = insertEmailSchema.parse({
-              leadId: lead.id,
-              subject: email.subject || '(No Subject)',
-              body: email.body?.content || '',
-              direction: 'received',
-              messageId: email.id,
-              conversationId: conversationId || null,
-              fromEmail: fromAddress,
-              toEmail: process.env.EMAIL_FROM_ADDRESS || null,
-              inReplyTo: getInReplyToHeader(email),
-            });
+          const emailData = insertEmailSchema.parse({
+            leadId: lead.id,
+            subject: email.subject || '(No Subject)',
+            body: email.body?.content || '',
+            direction: 'received',
+            messageId: email.id,
+            conversationId: conversationId || null,
+            fromEmail: fromAddress,
+            toEmail: process.env.EMAIL_FROM_ADDRESS || null,
+            inReplyTo: inReplyToHeader,
+          });
 
-            await storage.createEmail(emailData);
-            savedCount++;
-            
-            // Update lead status to "Replied" if they responded
-            await storage.updateLeadStatus(lead.id, "Replied");
-            
-            // Add notification for this new reply
-            const notification = addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
-            console.log(`     � Created notification ${notification.id} for ${lead.clientName}`);
-          } else {
-            console.log(`     ℹ️ Email already exists in database, skipping`);
-          }
+          await storage.createEmail(emailData);
+          savedCount++;
+          
+          // Update lead status to "Replied" if they responded
+          await storage.updateLeadStatus(lead.id, "Replied");
+          
+          // Add notification for this new reply
+          const notification = addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
+          console.log(`     Created notification ${notification.id} for ${lead.clientName}`);
         } else {
-          console.log(`     ⚠️ No matching lead found for email: ${fromAddress}`);
+          console.log(`     No matching lead found for email: ${fromAddress}`);
         }
       }
 
@@ -1027,3 +1049,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
+
