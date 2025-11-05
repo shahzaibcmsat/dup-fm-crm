@@ -55,7 +55,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="px-4 py-4 border-b-2 border-white/20 bg-gradient-to-br from-green-800 via-green-900 to-green-950 shadow-xl">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-center">
           <div className="bg-white p-2 rounded-xl shadow-lg ring-2 ring-white/30 hover:ring-white/50 transition-all">
             <img src="/fmd-logo.png" alt="FMD" className="h-8 w-auto object-contain" />
           </div>
@@ -145,7 +145,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></div>
           <div className="text-sm text-white font-medium">
-            FMD Sales CRM Created by <a href="https://napollo.net/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 font-semibold hover:underline">Napollo</a>.
+            FMD Sales CRM Created by <a href="https://napollo.net/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-white/80 font-semibold hover:underline">Napollo</a>.
           </div>
         </div>
       </SidebarFooter>
