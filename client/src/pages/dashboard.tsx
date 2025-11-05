@@ -245,21 +245,28 @@ export default function Dashboard() {
     .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
     [0];
 
-  const filteredLeads = leads.filter((lead) => {
-    const matchesSearch = 
-      lead.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (lead.leadDetails && lead.leadDetails.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
-    
-    const matchesCompany = 
-      companyFilter === "all" || 
-      (companyFilter === "none" && !lead.companyId) ||
-      lead.companyId === companyFilter;
-    
-    return matchesSearch && matchesStatus && matchesCompany;
-  });
+  const filteredLeads = leads
+    .filter((lead) => {
+      const matchesSearch = 
+        lead.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (lead.leadDetails && lead.leadDetails.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
+      
+      const matchesCompany = 
+        companyFilter === "all" || 
+        (companyFilter === "none" && !lead.companyId) ||
+        lead.companyId === companyFilter;
+      
+      return matchesSearch && matchesStatus && matchesCompany;
+    })
+    .sort((a, b) => {
+      // Sort by updatedAt (most recent first), fallback to createdAt
+      const dateA = new Date(a.updatedAt || a.createdAt).getTime();
+      const dateB = new Date(b.updatedAt || b.createdAt).getTime();
+      return dateB - dateA;
+    });
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
