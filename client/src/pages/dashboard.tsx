@@ -288,12 +288,9 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent">
-            FMD Companies Dashboard
-          </h1>
-          <p className="text-base text-muted-foreground mt-1">
+          <h2 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent">
             Overview of your leads and performance
-          </p>
+          </h2>
         </div>
         <div className="flex gap-2">
           {selectedLeadIds.size > 0 && (

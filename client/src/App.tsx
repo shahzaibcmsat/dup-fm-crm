@@ -54,6 +54,9 @@ export default function App() {
               <header className="flex items-center justify-between px-4 py-4 border-b-2 border-white/20 bg-gradient-to-br from-green-800 via-green-900 to-green-950 shadow-xl">
                 <div className="flex items-center gap-4">
                   <SidebarTrigger className="text-white hover:bg-white/20" data-testid="button-sidebar-toggle" />
+                  <h1 className="text-4xl font-bold text-white tracking-tight">
+                    FMD Companies Dashboard
+                  </h1>
                 </div>
                 <div className="flex items-center gap-4">
                   <NotificationBell onNotificationClick={handleNotificationClick} />
