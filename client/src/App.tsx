@@ -13,6 +13,7 @@ import Leads from "@/pages/leads";
 import Import from "@/pages/import";
 import Settings from "@/pages/settings";
 import CompanyLeads from "@/pages/company-leads";
+import Inventory from "@/pages/inventory";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/leads" component={Leads} />
       <Route path="/companies/:id" component={CompanyLeads} />
       <Route path="/import" component={Import} />
+      <Route path="/inventory" component={Inventory} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
@@ -55,7 +57,6 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-4">
                   <NotificationBell onNotificationClick={handleNotificationClick} />
-                  <div className="text-sm font-bold text-white tracking-wider">FMD COMPANIES SALES CRM</div>
                 </div>
               </header>
               <main className="flex-1 overflow-y-auto p-6">

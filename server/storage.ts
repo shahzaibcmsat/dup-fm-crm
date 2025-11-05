@@ -1,4 +1,4 @@
-import { leads, emails, companies, type Lead, type InsertLead, type Email, type InsertEmail, type Company, type InsertCompany } from "@shared/schema";
+import { leads, emails, companies, inventory, type Lead, type InsertLead, type Email, type InsertEmail, type Company, type InsertCompany, type Inventory, type InsertInventory } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, inArray } from "drizzle-orm";
 
@@ -23,6 +23,13 @@ export interface IStorage {
   createCompany(company: InsertCompany): Promise<Company>;
   updateCompany(id: string, company: InsertCompany): Promise<Company | undefined>;
   deleteCompany(id: string): Promise<boolean>;
+  getAllInventory(): Promise<Inventory[]>;
+  getInventoryItem(id: string): Promise<Inventory | undefined>;
+  createInventoryItem(item: InsertInventory): Promise<Inventory>;
+  updateInventoryItem(id: string, item: InsertInventory): Promise<Inventory | undefined>;
+  deleteInventoryItem(id: string): Promise<boolean>;
+  deleteInventoryItems(ids: string[]): Promise<number>;
+  createInventoryItems(items: InsertInventory[]): Promise<Inventory[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -184,6 +191,48 @@ export class DatabaseStorage implements IStorage {
   async deleteCompany(id: string): Promise<boolean> {
     const result = await db.delete(companies).where(eq(companies.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getAllInventory(): Promise<Inventory[]> {
+    return await db.select().from(inventory).orderBy(desc(inventory.createdAt));
+  }
+
+  async getInventoryItem(id: string): Promise<Inventory | undefined> {
+    const [item] = await db.select().from(inventory).where(eq(inventory.id, id));
+    return item || undefined;
+  }
+
+  async createInventoryItem(insertItem: InsertInventory): Promise<Inventory> {
+    const [item] = await db
+      .insert(inventory)
+      .values(insertItem)
+      .returning();
+    return item;
+  }
+
+  async updateInventoryItem(id: string, insertItem: InsertInventory): Promise<Inventory | undefined> {
+    const [item] = await db
+      .update(inventory)
+      .set({ ...insertItem, updatedAt: new Date() })
+      .where(eq(inventory.id, id))
+      .returning();
+    return item || undefined;
+  }
+
+  async deleteInventoryItem(id: string): Promise<boolean> {
+    const result = await db.delete(inventory).where(eq(inventory.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deleteInventoryItems(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db.delete(inventory).where(inArray(inventory.id, ids)).returning();
+    return result.length;
+  }
+
+  async createInventoryItems(items: InsertInventory[]): Promise<Inventory[]> {
+    if (items.length === 0) return [];
+    return await db.insert(inventory).values(items).returning();
   }
 }
 

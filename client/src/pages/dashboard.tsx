@@ -1,31 +1,80 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Lead, Email } from "@shared/schema";
+import { useLocation } from "wouter";
+import { Lead, Email, Company } from "@shared/schema";
 import { LeadCard } from "@/components/lead-card";
 import { EmailComposerModal } from "@/components/email-composer-modal";
 import { LeadDetailPanel } from "@/components/lead-detail-panel";
+import { AddLeadDialog } from "@/components/add-lead-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Mail, TrendingUp, Clock, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Users, Mail, TrendingUp, Clock, Loader2, Search, Filter, Plus, Building2, Trash2 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { notificationStore } from "@/lib/notificationStore";
 
 export default function Dashboard() {
+  const [location, setLocation] = useLocation();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [replyingToLead, setReplyingToLead] = useState<Lead | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("all");
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const leadsPerPage = 10;
   const { toast } = useToast();
 
   const { data: leads = [], isLoading: leadsLoading } = useQuery<Lead[]>({
     queryKey: ['/api/leads'],
   });
 
+  const { data: companies = [] } = useQuery<Company[]>({
+    queryKey: ['/api/companies'],
+  });
+
   const { data: emails = [] } = useQuery<Email[]>({
     queryKey: ['/api/emails', selectedLead?.id],
     enabled: !!selectedLead,
   });
+
+  // Handle selected lead from URL query parameter
+  useEffect(() => {
+    const params = new URLSearchParams(location.split('?')[1] || '');
+    const selectedId = params.get('selected');
+    
+    if (selectedId && leads.length > 0) {
+      const lead = leads.find(l => l.id === selectedId);
+      if (lead) {
+        setSelectedLead(lead);
+        setLocation('/');
+      }
+    }
+  }, [location, leads, setLocation]);
 
   // When opening a lead, clear its unread counter and try to sync inbox quickly
   useEffect(() => {
@@ -75,6 +124,27 @@ export default function Dashboard() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return apiRequest("POST", `/api/leads/bulk-delete`, { ids });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Leads deleted",
+        description: `${data.count} lead(s) deleted successfully.`,
+      });
+      setSelectedLeadIds(new Set());
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete leads",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleReply = (lead: Lead) => {
     setReplyingToLead(lead);
     setIsComposerOpen(true);
@@ -93,11 +163,68 @@ export default function Dashboard() {
     updateStatusMutation.mutate({ leadId, status: newStatus });
   };
 
+  const handleToggleSelectLead = (leadId: string) => {
+    const newSelected = new Set(selectedLeadIds);
+    if (newSelected.has(leadId)) {
+      newSelected.delete(leadId);
+    } else {
+      newSelected.add(leadId);
+    }
+    setSelectedLeadIds(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedLeadIds.size === filteredLeads.length) {
+      setSelectedLeadIds(new Set());
+    } else {
+      setSelectedLeadIds(new Set(filteredLeads.map(lead => lead.id)));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedLeadIds.size === 0) return;
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (selectedLeadIds.size > 0) {
+      await bulkDeleteMutation.mutateAsync(Array.from(selectedLeadIds));
+    }
+    setIsDeleteDialogOpen(false);
+  };
+
   // Get the last received email's subject for the lead being replied to
   const lastReceivedEmail = emails
     .filter(email => email.direction === "received")
     .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
     [0];
+
+  const filteredLeads = leads.filter((lead) => {
+    const matchesSearch = 
+      lead.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lead.leadDetails && lead.leadDetails.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
+    
+    const matchesCompany = 
+      companyFilter === "all" || 
+      (companyFilter === "none" && !lead.companyId) ||
+      lead.companyId === companyFilter;
+    
+    return matchesSearch && matchesStatus && matchesCompany;
+  });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
+  const startIndex = (currentPage - 1) * leadsPerPage;
+  const endIndex = startIndex + leadsPerPage;
+  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, companyFilter]);
 
   const stats = {
     total: leads.length,
@@ -108,15 +235,42 @@ export default function Dashboard() {
       : 0,
   };
 
+  const allFilteredSelected = filteredLeads.length > 0 && selectedLeadIds.size === filteredLeads.length;
+  const someSelected = selectedLeadIds.size > 0 && selectedLeadIds.size < filteredLeads.length;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent">
-          Sales Dashboard
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Overview of your leads and performance
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent">
+            FMD Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Overview of your leads and performance
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {selectedLeadIds.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSelected}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete {selectedLeadIds.size} Lead{selectedLeadIds.size !== 1 ? 's' : ''}
+            </Button>
+          )}
+          <Button 
+            onClick={() => {
+              setEditingLead(null);
+              setIsAddLeadOpen(true);
+            }}
+            className="bg-fmd-green hover:bg-fmd-green-dark"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Lead
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -177,9 +331,73 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, email, or details..."
+            className="pl-10"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            data-testid="input-search"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+            <SelectTrigger className="w-48" data-testid="select-company-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Companies</SelectItem>
+              <SelectItem value="none">No Company</SelectItem>
+              {companies.map((company) => (
+                <SelectItem key={company.id} value={company.id}>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-3 h-3" />
+                    {company.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-48" data-testid="select-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="New">New</SelectItem>
+              <SelectItem value="Contacted">Contacted</SelectItem>
+              <SelectItem value="Qualified">Qualified</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Follow-up">Follow-up</SelectItem>
+              <SelectItem value="Closed Won">Closed Won</SelectItem>
+              <SelectItem value="Closed Lost">Closed Lost</SelectItem>
+              <SelectItem value="Closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-fmd-black">Recent Leads</h2>
+          <h2 className="text-xl font-semibold text-fmd-black">All Leads</h2>
+          {filteredLeads.length > 0 && (
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={allFilteredSelected}
+                onCheckedChange={handleSelectAll}
+                aria-label="Select all leads"
+                className={someSelected ? "data-[state=checked]:bg-primary/50" : ""}
+              />
+              <p className="text-sm text-muted-foreground" data-testid="text-result-count">
+                {selectedLeadIds.size > 0 
+                  ? `${selectedLeadIds.size} of ${filteredLeads.length} selected`
+                  : `${filteredLeads.length} lead${filteredLeads.length !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+          )}
         </div>
 
         {leadsLoading ? (
@@ -192,25 +410,102 @@ export default function Dashboard() {
               <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-medium mb-2">No leads yet</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Start by importing your leads from Excel or Google Sheets
+                Start by importing your leads from Excel or CSV
               </p>
               <Button asChild data-testid="button-get-started">
                 <a href="/import">Get Started</a>
               </Button>
             </CardContent>
           </Card>
+        ) : filteredLeads.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                No leads match your filters. Try adjusting your search or filters.
+              </p>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="space-y-4">
-            {leads.slice(0, 10).map((lead) => (
-              <LeadCard
-                key={lead.id}
-                lead={lead}
-                onReply={handleReply}
-                onViewDetails={setSelectedLead}
-                onStatusChange={handleStatusChange}
-              />
-            ))}
-          </div>
+          <>
+            <div className="space-y-4">
+              {paginatedLeads.map((lead) => (
+                <div key={lead.id} className="flex items-start gap-3">
+                  <Checkbox
+                    checked={selectedLeadIds.has(lead.id)}
+                    onCheckedChange={() => handleToggleSelectLead(lead.id)}
+                    aria-label={`Select ${lead.clientName}`}
+                    className="mt-4"
+                  />
+                  <div className="flex-1">
+                    <LeadCard
+                      lead={lead}
+                      onReply={handleReply}
+                      onViewDetails={setSelectedLead}
+                      onStatusChange={handleStatusChange}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredLeads.length)} of {filteredLeads.length} leads
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      // Show first page, last page, current page, and pages around current
+                      const showPage = 
+                        page === 1 || 
+                        page === totalPages || 
+                        (page >= currentPage - 1 && page <= currentPage + 1);
+                      
+                      const showEllipsis = 
+                        (page === currentPage - 2 && currentPage > 3) ||
+                        (page === currentPage + 2 && currentPage < totalPages - 2);
+
+                      if (showEllipsis) {
+                        return <span key={page} className="px-2 text-muted-foreground">...</span>;
+                      }
+
+                      if (!showPage) return null;
+
+                      return (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className={currentPage === page ? "bg-fmd-green hover:bg-fmd-green-dark" : ""}
+                        >
+                          {page}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -225,6 +520,15 @@ export default function Dashboard() {
         lastReceivedEmailSubject={lastReceivedEmail?.subject}
       />
 
+      <AddLeadDialog
+        isOpen={isAddLeadOpen}
+        onClose={() => {
+          setIsAddLeadOpen(false);
+          setEditingLead(null);
+        }}
+        lead={editingLead}
+      />
+
       {selectedLead && (
         <LeadDetailPanel
           lead={selectedLead}
@@ -232,8 +536,32 @@ export default function Dashboard() {
           onClose={() => setSelectedLead(null)}
           onStatusChange={handleStatusChange}
           onReply={handleReply}
+          onEdit={(lead) => {
+            setEditingLead(lead);
+            setIsAddLeadOpen(true);
+          }}
         />
       )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedLeadIds.size} lead{selectedLeadIds.size !== 1 ? 's' : ''} and all associated emails. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

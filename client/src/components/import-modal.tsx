@@ -65,7 +65,10 @@ export function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
     try {
       await onImport(file);
       setFile(null);
-      onClose();
+      // Don't close immediately - let parent handle closing after showing summary
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } finally {
       setIsImporting(false);
     }

@@ -15,15 +15,47 @@ interface LeadCardProps {
   onStatusChange?: (leadId: string, status: string) => void;
 }
 
-const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
-  New: "default",
-  Contacted: "secondary",
-  Qualified: "outline",
-  "In Progress": "secondary",
-  "Follow-up": "secondary",
-  "Closed Won": "default",
-  "Closed Lost": "outline",
-  "Closed": "outline",
+const statusConfig: Record<string, { bg: string; text: string; ring: string }> = {
+  "New": { 
+    bg: "bg-gradient-to-r from-blue-500 to-indigo-600", 
+    text: "text-white", 
+    ring: "ring-2 ring-blue-300 ring-offset-2" 
+  },
+  "Contacted": { 
+    bg: "bg-gradient-to-r from-purple-500 to-pink-600", 
+    text: "text-white", 
+    ring: "ring-2 ring-purple-300 ring-offset-2" 
+  },
+  "Qualified": { 
+    bg: "bg-gradient-to-r from-emerald-500 to-green-600", 
+    text: "text-white", 
+    ring: "ring-2 ring-emerald-300 ring-offset-2" 
+  },
+  "In Progress": { 
+    bg: "bg-gradient-to-r from-amber-500 to-orange-600", 
+    text: "text-white", 
+    ring: "ring-2 ring-amber-300 ring-offset-2" 
+  },
+  "Follow-up": { 
+    bg: "bg-gradient-to-r from-cyan-500 to-teal-600", 
+    text: "text-white", 
+    ring: "ring-2 ring-cyan-300 ring-offset-2" 
+  },
+  "Closed Won": { 
+    bg: "bg-gradient-to-r from-green-600 to-emerald-700", 
+    text: "text-white", 
+    ring: "ring-2 ring-green-400 ring-offset-2" 
+  },
+  "Closed Lost": { 
+    bg: "bg-gradient-to-r from-red-500 to-rose-600", 
+    text: "text-white", 
+    ring: "ring-2 ring-red-300 ring-offset-2" 
+  },
+  "Closed": { 
+    bg: "bg-gradient-to-r from-gray-500 to-slate-600", 
+    text: "text-white", 
+    ring: "ring-2 ring-gray-300 ring-offset-2" 
+  },
 };
 
 const statusOptions = [
@@ -70,23 +102,33 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadC
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2 relative">
-            <div className="relative">
-              <Mail className={`w-4 h-4 ${hasUnread ? 'text-red-600' : 'text-fmd-green'}`} />
+          <div className="flex items-center gap-2 text-sm mb-2">
+            {lead.phone && (
+              <span className="group relative inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-400">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 to-green-400/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="relative flex items-center justify-center w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg shadow-sm">
+                  <Phone className="w-4 h-4 text-white" />
+                </div>
+                <span className="relative font-semibold text-gray-700 group-hover:text-emerald-700 transition-colors">
+                  {lead.phone}
+                </span>
+              </span>
+            )}
+            <div className="group relative inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-blue-400">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-indigo-400/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative flex items-center justify-center w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-sm">
+                <Mail className={`w-4 h-4 ${hasUnread ? 'text-yellow-300 animate-pulse' : 'text-white'}`} />
+              </div>
+              <span className={`relative font-semibold ${hasUnread ? 'text-red-600 font-bold' : 'text-gray-700 group-hover:text-blue-700'} transition-colors`} data-testid={`text-email-${lead.id}`}>
+                {lead.email}
+              </span>
               {hasUnread && (
-                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold leading-none rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-pulse">
+                <span className="absolute -top-2 -right-2 bg-gradient-to-br from-red-500 to-pink-600 text-white text-xs font-bold leading-none rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-bounce ring-2 ring-red-200">
                   {unread > 9 ? '9+' : unread}
                 </span>
               )}
             </div>
-            <span className={`truncate ${hasUnread ? 'text-red-800 font-semibold' : ''}`} data-testid={`text-email-${lead.id}`}>{lead.email}</span>
           </div>
-          {lead.phone && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <Phone className="w-4 h-4 text-fmd-green" />
-              <span className="truncate">{lead.phone}</span>
-            </div>
-          )}
           {lead.subject && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
               <MessageSquare className="w-4 h-4 text-fmd-burgundy" />
@@ -109,43 +151,59 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadC
         </div>
         <div className="flex flex-col items-end gap-2">
           {onStatusChange ? (
-            <Select 
-              value={lead.status} 
-              onValueChange={(value) => {
-                onStatusChange(lead.id, value);
-              }}
-            >
-              <SelectTrigger 
-                className="w-36 min-h-8 font-medium" 
-                onClick={(e) => e.stopPropagation()}
-                data-testid={`select-status-${lead.id}`}
+            <div className="relative w-full">
+              <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-4 h-9 rounded-lg font-bold text-sm shadow-md ${statusConfig[lead.status]?.ring || ''} transition-all hover:shadow-lg flex items-center justify-center`}>
+                {lead.status}
+              </div>
+              <Select 
+                value={lead.status} 
+                onValueChange={(value) => {
+                  onStatusChange(lead.id, value);
+                }}
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent onClick={(e) => e.stopPropagation()}>
-                {statusOptions.map((status) => (
-                  <SelectItem key={status} value={status} data-testid={`option-status-${status.toLowerCase().replace(/\s+/g, '-')}`}>
-                    {status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <SelectTrigger 
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" 
+                  onClick={(e) => e.stopPropagation()}
+                  data-testid={`select-status-${lead.id}`}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent onClick={(e) => e.stopPropagation()}>
+                  {statusOptions.map((status) => {
+                    const config = statusConfig[status];
+                    return (
+                      <SelectItem 
+                        key={status} 
+                        value={status} 
+                        data-testid={`option-status-${status.toLowerCase().replace(/\s+/g, '-')}`}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${config?.bg || 'bg-gray-500'}`}></div>
+                          <span className="font-semibold">{status}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           ) : (
-            <Badge variant={statusVariants[lead.status] || "default"} className="font-medium" data-testid={`badge-status-${lead.id}`}>
-              {lead.status.toUpperCase()}
-            </Badge>
+            <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-4 h-9 rounded-lg font-bold text-sm shadow-md ${statusConfig[lead.status]?.ring || ''} flex items-center justify-center w-full`} data-testid={`badge-status-${lead.id}`}>
+              {lead.status}
+            </div>
           )}
           <Button 
             size="sm" 
-            className={`font-medium ${hasUnread ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' : 'bg-fmd-green hover:bg-fmd-green-dark text-white'}`}
+            className={`h-9 w-full font-medium bg-green-700 hover:bg-green-800 text-white ${hasUnread ? 'animate-pulse ring-2 ring-green-400' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
-              onReply(lead);
+              onViewDetails(lead);
             }}
-            data-testid={`button-reply-${lead.id}`}
+            data-testid={`button-view-lead-${lead.id}`}
           >
             <Mail className="w-3.5 h-3.5 mr-2" />
-            {hasUnread ? 'View Reply' : 'Reply'}
+            View Lead
           </Button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Home, Upload, Settings, Database, Building2, Plus } from "lucide-react";
+import { Home, Upload, Settings, Database, Building2, Plus, Package } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Company } from "@shared/schema";
 import { AddCompanyDialog } from "@/components/add-company-dialog";
@@ -21,14 +21,9 @@ import { useUnreadEmailCounts } from "@/lib/notificationStore";
 
 const menuItems = [
   {
-    title: "Dashboard",
+    title: "FMD Dashboard",
     url: "/",
     icon: Home,
-  },
-  {
-    title: "All Leads",
-    url: "/leads",
-    icon: Database,
   },
   {
     title: "Import",
@@ -41,6 +36,12 @@ const menuItems = [
     icon: Settings,
   },
 ];
+
+const inventoryItem = {
+  title: "Inventory",
+  url: "/inventory",
+  icon: Package,
+};
 
 export function AppSidebar() {
   const [location] = useLocation();
@@ -66,14 +67,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => {
-                const isLeads = item.title === "All Leads";
+                const isFMDDashboard = item.title === "FMD Dashboard";
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={location === item.url}>
                       <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
                         <div className="relative">
                           <item.icon className="w-4 h-4" />
-                          {isLeads && unreadTotal > 0 && (
+                          {isFMDDashboard && unreadTotal > 0 && (
                             <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] leading-none rounded-full px-1.5 py-0.5 shadow">
                               {unreadTotal > 9 ? '9+' : unreadTotal}
                             </span>
@@ -91,7 +92,7 @@ export function AppSidebar() {
 
         <SidebarGroup>
           <div className="flex items-center justify-between px-2 py-1">
-            <SidebarGroupLabel>Companies</SidebarGroupLabel>
+            <SidebarGroupLabel>FMD Companies</SidebarGroupLabel>
             <Button
               size="icon"
               variant="ghost"
@@ -120,6 +121,22 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 ))
               )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Inventory</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === inventoryItem.url}>
+                  <Link href={inventoryItem.url}>
+                    <inventoryItem.icon className="w-4 h-4" />
+                    <span>{inventoryItem.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

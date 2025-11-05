@@ -38,6 +38,18 @@ export const emails = pgTable("emails", {
   sentAt: timestamp("sent_at").notNull().defaultNow(),
 });
 
+export const inventory = pgTable("inventory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productHeading: text("product_heading"), // For section headers like "PARMA SPC"
+  product: text("product").notNull(),
+  boxes: text("boxes"), // stored as text to handle empty values and decimals
+  sqFtPerBox: text("sq_ft_per_box"), // stored as text to handle decimal precision
+  totalSqFt: text("total_sq_ft"), // stored as text to handle decimal precision
+  notes: text("notes"), // For additional notes like "(drop)", "(NIFW)", "discontinued"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const companiesRelations = relations(companies, ({ many }) => ({
   leads: many(leads),
 }));
@@ -74,9 +86,20 @@ export const insertEmailSchema = createInsertSchema(emails).omit({
   sentAt: true,
 });
 
+export const insertInventorySchema = z.object({
+  product: z.string(),
+  boxes: z.string().nullable(),
+  sqFtPerBox: z.string().nullable(),
+  totalSqFt: z.string().nullable(),
+  productHeading: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Lead = typeof leads.$inferSelect;
 export type InsertEmail = z.infer<typeof insertEmailSchema>;
 export type Email = typeof emails.$inferSelect;
+export type InsertInventory = z.infer<typeof insertInventorySchema>;
+export type Inventory = typeof inventory.$inferSelect;

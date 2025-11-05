@@ -3,7 +3,9 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { storage } from "./storage";
-import { insertLeadSchema, insertEmailSchema, insertCompanySchema } from "@shared/schema";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
+import { insertLeadSchema, insertEmailSchema, insertCompanySchema, insertInventorySchema } from "@shared/schema";
 import { sendEmail, isMicrosoftGraphConfigured, getAuthorizationUrl, exchangeCodeForTokens } from "./outlook";
 import { grammarFix, generateAutoReply } from "./groq";
 import { getAllConfig, saveConfigToFile, validateConfig } from "./config-manager";
@@ -435,35 +437,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet);
+      const rawData = XLSX.utils.sheet_to_json(worksheet);
 
-      const leads = data.map((row: any) => {
-        const clientName = row["Client Name"] || row["Name"] || row["client_name"] || row["name"];
-        const email = row["Email"] || row["email"];
-        const phone = row["Phone Number"] || row["Phone"] || row["phone"] || row["phone_number"] || "";
-        const subject = row["Subject"] || row["subject"] || "";
-        const leadDetails = row["Lead Details"] || row["Lead Description"] || row["Description"] || row["lead_details"] || row["description"] || "";
+      console.log(`📊 Processing ${rawData.length} rows from Excel file`);
+      
+      if (rawData.length === 0) {
+        return res.status(400).json({ message: "Excel file is empty" });
+      }
 
-        if (!clientName || !email) {
-          throw new Error("Each row must have Name and Email columns");
+      // Log the actual column names from the Excel file
+      const firstRow = rawData[0] as any;
+      const actualColumns = Object.keys(firstRow);
+      console.log("📋 Detected columns in Excel:", actualColumns);
+
+      // Helper function to find value from row using case-insensitive column matching
+      const getColumnValue = (row: any, possibleNames: string[]): string => {
+        // First try exact match
+        for (const name of possibleNames) {
+          if (row[name]) return String(row[name]).trim();
         }
+        
+        // Then try case-insensitive match
+        const rowKeys = Object.keys(row);
+        for (const name of possibleNames) {
+          const lowerName = name.toLowerCase();
+          const matchingKey = rowKeys.find(key => key.toLowerCase() === lowerName);
+          if (matchingKey && row[matchingKey]) {
+            return String(row[matchingKey]).trim();
+          }
+        }
+        
+        return "";
+      };
 
-        return {
-          clientName: String(clientName).trim(),
-          email: String(email).trim(),
-          phone: phone ? String(phone).trim() : null,
-          subject: subject ? String(subject).trim() : null,
-          leadDetails: String(leadDetails).trim(),
-          status: "New",
-        };
+      const leads = rawData
+        .map((row: any, index: number) => {
+          // Get values using case-insensitive matching
+          const clientName = getColumnValue(row, [
+            "Name", "Client Name", "client_name", "name", "CLIENT NAME", "NAME"
+          ]);
+          
+          const email = getColumnValue(row, [
+            "Email", "email", "EMAIL", "E-mail", "e-mail"
+          ]);
+          
+          const phone = getColumnValue(row, [
+            "Phone Number", "Phone", "phone", "phone_number", "PHONE NUMBER", "PHONE"
+          ]);
+          
+          const subject = getColumnValue(row, [
+            "Subject", "subject", "SUBJECT"
+          ]);
+          
+          const leadDetails = getColumnValue(row, [
+            "Lead Description", "Lead Details", "Description", 
+            "lead_details", "description", "LEAD DESCRIPTION", "DESCRIPTION"
+          ]);
+
+          // Skip rows without name or email
+          if (!clientName || !email) {
+            console.log(`⚠️ Skipping row ${index + 2}: Missing name or email`, { 
+              clientName: clientName || '(empty)', 
+              email: email || '(empty)',
+              rowData: row 
+            });
+            return null;
+          }
+
+          // Validate email format
+          if (!email.includes('@')) {
+            console.log(`⚠️ Skipping row ${index + 2}: Invalid email format: ${email}`);
+            return null;
+          }
+
+          console.log(`✅ Row ${index + 2}: ${clientName} <${email}>`);
+
+          return {
+            clientName,
+            email,
+            phone: phone || null,
+            subject: subject || null,
+            leadDetails: leadDetails || "",
+            status: "New",
+          };
+        })
+        .filter((lead): lead is NonNullable<typeof lead> => lead !== null);
+
+      if (leads.length === 0) {
+        return res.status(400).json({ 
+          message: "No valid leads found. Ensure your Excel has 'Name' and 'Email' columns with data. Detected columns: " + actualColumns.join(", ")
+        });
+      }
+
+      console.log(`✅ Found ${leads.length} valid leads to import`);
+
+      // Get all existing emails from database for duplicate detection
+      const existingLeads = await storage.getAllLeads();
+      const existingEmails = new Set(existingLeads.map(lead => lead.email.toLowerCase()));
+
+      // Detect duplicates within the file itself
+      const emailCount = new Map<string, number>();
+      leads.forEach(lead => {
+        const email = lead.email.toLowerCase();
+        emailCount.set(email, (emailCount.get(email) || 0) + 1);
       });
 
+      const duplicatesWithinFile = Array.from(emailCount.entries())
+        .filter(([_, count]) => count > 1)
+        .map(([email]) => email);
+
+      // Track duplicates for reporting only (still import them)
+      const duplicateEmails: string[] = [];
+      const fileInternalDuplicates: string[] = [];
+      const processedFileEmails = new Set<string>();
+
+      leads.forEach((lead) => {
+        const emailLower = lead.email.toLowerCase();
+        
+        // Check if email already exists in database
+        if (existingEmails.has(emailLower)) {
+          duplicateEmails.push(lead.email);
+        }
+        
+        // Check if this email appears multiple times in the file
+        if (duplicatesWithinFile.includes(emailLower)) {
+          if (!processedFileEmails.has(emailLower)) {
+            processedFileEmails.add(emailLower);
+            fileInternalDuplicates.push(lead.email);
+          }
+        }
+      });
+
+      console.log(`📊 Import Summary:`);
+      console.log(`   - Total leads to import: ${leads.length}`);
+      console.log(`   - Database duplicates found: ${duplicateEmails.length}`);
+      console.log(`   - File internal duplicates: ${fileInternalDuplicates.length}`);
+
+      // Import ALL leads (including duplicates)
       const validatedLeads = leads.map((lead) => insertLeadSchema.parse(lead));
       const createdLeads = await storage.createLeads(validatedLeads);
+      const createdCount = createdLeads.length;
+      
+      console.log(`✅ Successfully imported ${createdCount} leads`);
 
-      res.json({ success: true, count: createdLeads.length });
+      res.json({ 
+        success: true, 
+        total: leads.length,
+        imported: createdCount,
+        duplicates: duplicateEmails.length,
+        rejected: leads.length - createdCount,
+        summary: {
+          totalRows: rawData.length,
+          validRows: leads.length,
+          newLeads: createdCount,
+          duplicateLeads: duplicateEmails.length,
+          invalidRows: rawData.length - leads.length,
+          duplicateEmails: duplicateEmails,
+          fileInternalDuplicates: fileInternalDuplicates,
+          rejectedCount: leads.length - createdCount
+        }
+      });
     } catch (error: any) {
-      console.error("Error importing file:", error);
+      console.error("❌ Error importing file:", error);
       res.status(400).json({ message: error.message || "Failed to import file" });
     }
   });
@@ -571,6 +706,244 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Inventory management endpoints
+  app.post("/api/migrate/inventory-schema", async (req, res) => {
+    try {
+      const { db } = await import('./db');
+      const { sql: execSql } = await import('drizzle-orm');
+      
+      const migrationSQL = `
+        -- Drop existing inventory table if exists
+        DROP TABLE IF EXISTS inventory CASCADE;
+
+        -- Create new inventory table with Excel column structure
+        CREATE TABLE inventory (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          product_heading TEXT,
+          product TEXT NOT NULL,
+          boxes INTEGER DEFAULT 0,
+          sq_ft_per_box TEXT DEFAULT '0',
+          total_sq_ft TEXT DEFAULT '0',
+          notes TEXT,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+
+        -- Create indexes for better performance
+        CREATE INDEX idx_inventory_product ON inventory(product);
+        CREATE INDEX idx_inventory_heading ON inventory(product_heading);
+      `;
+      
+      await db.execute(execSql.raw(migrationSQL));
+      
+      res.json({ success: true, message: 'Inventory schema migration completed' });
+    } catch (error: any) {
+      console.error('Migration error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/inventory", async (req, res) => {
+    try {
+      const items = await storage.getAllInventory();
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/inventory/:id", async (req, res) => {
+    try {
+      const item = await storage.getInventoryItem(req.params.id);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/inventory", async (req, res) => {
+    try {
+      const validated = insertInventorySchema.parse(req.body);
+      const item = await storage.createInventoryItem(validated);
+      res.json(item);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/inventory/:id", async (req, res) => {
+    try {
+      const validated = insertInventorySchema.parse(req.body);
+      const item = await storage.updateInventoryItem(req.params.id, validated);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      res.json(item);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/inventory/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteInventoryItem(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/inventory/bulk-delete", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids)) {
+        return res.status(400).json({ message: "Invalid request: ids must be an array" });
+      }
+      const count = await storage.deleteInventoryItems(ids);
+      res.json({ success: true, count });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/inventory/import", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const rawData: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+      console.log(`📊 Processing ${rawData.length} rows from inventory Excel file`);
+
+      const items: any[] = [];
+      let currentHeading: string | null = null;
+
+      for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i];
+        const rowNumber = i + 2;
+
+        const getColumnValue = (possibleNames: string[]): string | undefined => {
+          for (const name of possibleNames) {
+            const value = row[name];
+            if (value !== undefined && value !== null && value !== "") {
+              return String(value).trim();
+            }
+          }
+          return undefined;
+        };
+
+        const product = getColumnValue(["PRODUCT", "Product", "product"]);
+        
+        // Skip empty rows
+        if (!product || product === "") {
+          continue;
+        }
+
+        // Check if this is a heading row (no boxes/sq ft data, likely all caps or bold text)
+        const boxes = getColumnValue(["Boxes", "boxes", "BOXES"]);
+        const sqFtBox = getColumnValue(["Sq Ft/box", "sq_ft_box", "Sq Ft/Box", "SQ FT/BOX"]);
+        
+        // If product exists but no numeric data, treat as heading
+        if (!boxes && !sqFtBox) {
+          currentHeading = product;
+          console.log(`📋 Section Header: ${currentHeading}`);
+          continue;
+        }
+
+        // Parse boxes value, keeping as string to handle empty/invalid values
+        const boxesValue = boxes || null;
+        const sqFtBoxValue = sqFtBox || null;
+        const totalSqFt = getColumnValue(["Tot Sq Ft", "total_sq_ft", "Total Sq Ft", "TOT SQ FT"]) || null;
+        
+        // Extract notes from product name (anything in parentheses)
+        let productName = product;
+        let notes = null;
+        const notesMatch = product.match(/\(([^)]+)\)/);
+        if (notesMatch) {
+          notes = notesMatch[1];
+          productName = product.replace(/\s*\([^)]+\)\s*/g, '').trim();
+        }
+
+        const item = {
+          productHeading: currentHeading,
+          product: productName,
+          boxes: boxesValue,
+          sqFtPerBox: sqFtBoxValue,
+          totalSqFt: totalSqFt,
+          notes: notes,
+        };
+
+        console.log(`✅ Row ${rowNumber}: ${item.product}${item.productHeading ? ` [${item.productHeading}]` : ''}`);
+        items.push(item);
+      }
+
+      if (items.length === 0) {
+        return res.status(400).json({ 
+          message: "No valid items found. Ensure your Excel has 'PRODUCT' and 'Boxes' columns with data."
+        });
+      }
+
+      console.log(`✅ Found ${items.length} valid items to import`);
+
+      const validatedItems = items.map((item) => insertInventorySchema.parse(item));
+      const createdItems = await storage.createInventoryItems(validatedItems);
+
+      console.log(`🎉 Successfully imported ${createdItems.length} items`);
+      res.json({ 
+        success: true, 
+        total: items.length,
+        imported: createdItems.length
+      });
+    } catch (error: any) {
+      console.error("❌ Error importing inventory file:", error);
+      res.status(400).json({ message: error.message || "Failed to import file" });
+    }
+  });
+
+  // Migration endpoint to update inventory schema
+  app.post("/api/migrate-inventory", async (req, res) => {
+    try {
+      console.log("🔧 Running inventory schema migration...");
+      
+      await db.execute(sql`DROP TABLE IF EXISTS inventory CASCADE`);
+      console.log("✅ Dropped old inventory table");
+      
+      await db.execute(sql`
+        CREATE TABLE inventory (
+          id SERIAL PRIMARY KEY,
+          product TEXT NOT NULL,
+          boxes TEXT,
+          sq_ft_per_box TEXT,
+          total_sq_ft TEXT,
+          product_heading TEXT,
+          notes TEXT,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      console.log("✅ Created new inventory table");
+      
+      await db.execute(sql`CREATE INDEX idx_inventory_product ON inventory(product)`);
+      await db.execute(sql`CREATE INDEX idx_inventory_product_heading ON inventory(product_heading)`);
+      console.log("✅ Created indexes");
+      
+      res.json({ success: true, message: "Migration completed successfully" });
+    } catch (error: any) {
+      console.error("❌ Migration failed:", error);
+      res.status(500).json({ success: false, message: error.message });
     }
   });
 
