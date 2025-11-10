@@ -19,6 +19,7 @@ export const leads = pgTable("leads", {
   phone: text("phone"),
   subject: text("subject"),
   leadDetails: text("lead_details"),
+  notes: text("notes"), // Internal notes/comments for the lead
   status: text("status").notNull().default("New"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

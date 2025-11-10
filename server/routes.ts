@@ -239,6 +239,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/leads/:id/notes", async (req, res) => {
+    try {
+      const { notes } = req.body;
+      if (notes === undefined) {
+        return res.status(400).json({ message: "Notes field is required" });
+      }
+      const lead = await storage.updateLeadNotes(req.params.id, notes);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.delete("/api/leads/:id", async (req, res) => {
     try {
       const success = await storage.deleteLead(req.params.id);
@@ -1038,6 +1054,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.execute(sql`CREATE INDEX idx_inventory_product_heading ON inventory(product_heading)`);
       console.log("✅ Created indexes");
       
+      res.json({ success: true, message: "Migration completed successfully" });
+    } catch (error: any) {
+      console.error("❌ Migration failed:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Migration endpoint to add notes column to leads table
+  app.post("/api/migrate/add-notes-to-leads", async (req, res) => {
+    try {
+      console.log("🔄 Running migration: add notes column to leads table");
+      
+      // Check if column already exists
+      const result = await db.execute(sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'leads' AND column_name = 'notes'
+      `);
+      
+      if (result.rows && result.rows.length > 0) {
+        console.log("ℹ️ Notes column already exists");
+        return res.json({ success: true, message: "Notes column already exists" });
+      }
+      
+      // Add notes column
+      await db.execute(sql`
+        ALTER TABLE leads 
+        ADD COLUMN notes TEXT
+      `);
+      
+      console.log("✅ Successfully added notes column to leads table");
       res.json({ success: true, message: "Migration completed successfully" });
     } catch (error: any) {
       console.error("❌ Migration failed:", error);

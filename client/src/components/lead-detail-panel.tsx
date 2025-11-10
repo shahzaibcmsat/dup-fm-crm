@@ -1,8 +1,9 @@
 import React from "react";
-import { X, Mail, Clock, User, Edit, ChevronDown, ChevronUp, Phone, MessageSquare } from "lucide-react";
+import { X, Mail, Clock, User, Edit, ChevronDown, ChevronUp, Phone, MessageSquare, Save, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Lead, Email } from "@shared/schema";
 import { formatDistanceToNow, format } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface LeadDetailPanelProps {
   lead: Lead | null;
@@ -21,6 +22,7 @@ interface LeadDetailPanelProps {
   onStatusChange: (leadId: string, newStatus: string) => void;
   onReply: (lead: Lead) => void;
   onEdit?: (lead: Lead) => void;
+  onUpdateNotes?: (leadId: string, notes: string) => void;
 }
 
 const statusConfig: Record<string, { bg: string; text: string; ring: string }> = {
@@ -77,10 +79,37 @@ const statusOptions = [
   "Closed"
 ];
 
-export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply, onEdit }: LeadDetailPanelProps) {
+export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply, onEdit, onUpdateNotes }: LeadDetailPanelProps) {
   const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set());
+  const [notes, setNotes] = useState(lead?.notes || "");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+
+  // Sync notes when lead changes
+  useEffect(() => {
+    setNotes(lead?.notes || "");
+    setIsEditingNotes(false); // Exit edit mode when lead changes
+  }, [lead?.id, lead?.notes]);
 
   if (!lead) return null;
+
+  const handleSaveNotes = async () => {
+    if (!onUpdateNotes) return;
+    setIsSavingNotes(true);
+    try {
+      await onUpdateNotes(lead.id, notes);
+      setIsEditingNotes(false); // Exit edit mode after saving
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setNotes(lead?.notes || ""); // Reset to original notes
+    setIsEditingNotes(false);
+  };
+
+  const hasNotesChanged = notes !== (lead.notes || "");
 
   const toggleEmailExpand = (emailId: string) => {
     setExpandedEmails(prev => {
@@ -211,6 +240,68 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
               <p className="text-sm">
                 {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })}
               </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wide flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Notes / Comments
+              </label>
+              {!isEditingNotes && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingNotes(true)}
+                  className="h-8"
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {isEditingNotes ? (
+                <>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add internal notes or comments about this lead..."
+                    className="min-h-[120px] text-sm resize-none"
+                    data-testid="textarea-notes"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSaveNotes}
+                      disabled={isSavingNotes}
+                      className="flex-1 bg-fmd-green hover:bg-fmd-green/90"
+                      size="sm"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      {isSavingNotes ? "Saving..." : "Save Notes"}
+                    </Button>
+                    <Button
+                      onClick={handleCancelEdit}
+                      disabled={isSavingNotes}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div 
+                  className="min-h-[120px] p-3 rounded-md border bg-muted/30 text-sm whitespace-pre-wrap"
+                  data-testid="notes-display"
+                >
+                  {notes || <span className="text-muted-foreground italic">No notes yet. Click Edit to add notes.</span>}
+                </div>
+              )}
             </div>
           </div>
 

@@ -78,6 +78,16 @@ export default function Dashboard() {
     }
   }, [location, leads, setLocation]);
 
+  // Update selectedLead when leads data changes (e.g., after saving notes)
+  useEffect(() => {
+    if (selectedLead && leads.length > 0) {
+      const updatedLead = leads.find(l => l.id === selectedLead.id);
+      if (updatedLead) {
+        setSelectedLead(updatedLead);
+      }
+    }
+  }, [leads]);
+
   // When opening a lead, clear its unread counter and try to sync inbox quickly
   useEffect(() => {
     if (!selectedLead) return;
@@ -171,6 +181,26 @@ export default function Dashboard() {
     },
   });
 
+  const updateNotesMutation = useMutation({
+    mutationFn: async ({ leadId, notes }: { leadId: string; notes: string }) => {
+      return apiRequest("PATCH", `/api/leads/${leadId}/notes`, { notes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Notes saved",
+        description: "Lead notes have been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to save notes",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleReply = (lead: Lead) => {
     setReplyingToLead(lead);
     setIsComposerOpen(true);
@@ -187,6 +217,10 @@ export default function Dashboard() {
 
   const handleStatusChange = (leadId: string, newStatus: string) => {
     updateStatusMutation.mutate({ leadId, status: newStatus });
+  };
+
+  const handleUpdateNotes = async (leadId: string, notes: string) => {
+    await updateNotesMutation.mutateAsync({ leadId, notes });
   };
 
   const handleToggleSelectLead = (leadId: string) => {
@@ -602,6 +636,7 @@ export default function Dashboard() {
             setEditingLead(lead);
             setIsAddLeadOpen(true);
           }}
+          onUpdateNotes={handleUpdateNotes}
         />
       )}
 
