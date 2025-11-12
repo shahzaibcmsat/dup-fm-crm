@@ -47,9 +47,19 @@ export function AppSidebar() {
   const [location] = useLocation();
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
   const { unreadTotal } = useUnreadEmailCounts();
+  const userRole = localStorage.getItem("userRole");
 
   const { data: companies = [] } = useQuery<Company[]>({
     queryKey: ['/api/companies'],
+  });
+
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter(item => {
+    if (userRole === "client") {
+      // Hide Import and Settings for client users
+      return item.title !== "Import" && item.title !== "Settings";
+    }
+    return true;
   });
 
   return (
@@ -66,7 +76,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sm font-semibold">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => {
+              {filteredMenuItems.map((item) => {
                 const isFMDDashboard = item.title === "FMD Dashboard";
                 return (
                   <SidebarMenuItem key={item.title}>

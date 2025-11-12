@@ -8,6 +8,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationBell } from "@/components/notification-bell";
 import { useEmailNotifications } from "@/hooks/use-email-notifications";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import Leads from "@/pages/leads";
 import Import from "@/pages/import";
@@ -15,6 +17,7 @@ import Settings from "@/pages/settings";
 import CompanyLeads from "@/pages/company-leads";
 import Inventory from "@/pages/inventory";
 import NotFound from "@/pages/not-found";
+import Login from "@/pages/login";
 
 function Router() {
   return (
@@ -25,12 +28,13 @@ function Router() {
       <Route path="/import" component={Import} />
       <Route path="/inventory" component={Inventory} />
       <Route path="/settings" component={Settings} />
+      <Route path="/login" component={Login} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-export default function App() {
+function AuthenticatedApp() {
   // Enable email reply notifications
   useEmailNotifications();
   const [, navigate] = useLocation();
@@ -42,6 +46,12 @@ export default function App() {
 
   const handleNotificationClick = (leadId: string) => {
     navigate(`/leads?selected=${leadId}`);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("username");
+    navigate("/login");
   };
 
   return (
@@ -60,6 +70,15 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                   <NotificationBell onNotificationClick={handleNotificationClick} />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="text-white hover:bg-white/20 flex items-center gap-2"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="hidden sm:inline">Logout</span>
+                  </Button>
                 </div>
               </header>
               <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
@@ -74,4 +93,29 @@ export default function App() {
       </TooltipProvider>
     </QueryClientProvider>
   );
+}
+
+export default function App() {
+  const [location] = useLocation();
+  const isAuthenticated = localStorage.getItem("userRole");
+
+  // If on login page, show login without sidebar/header
+  if (location === "/login") {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Login />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  // If not authenticated and not on login page, redirect to login
+  if (!isAuthenticated) {
+    window.location.href = "/login";
+    return null;
+  }
+
+  return <AuthenticatedApp />;
 }
