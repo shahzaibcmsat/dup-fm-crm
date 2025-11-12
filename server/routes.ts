@@ -406,6 +406,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dismiss notifications for a specific lead (when user views the lead)
+  app.post("/api/notifications/dismiss/:leadId", async (req, res) => {
+    try {
+      const { dismissNotificationsForLead } = await import("./index");
+      const { leadId } = req.params;
+      dismissNotificationsForLead(leadId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Sync emails from inbox (check for new replies)
   app.post("/api/emails/sync", async (req, res) => {
     try {

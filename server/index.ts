@@ -92,6 +92,7 @@ app.use((req, res, next) => {
 
 // Store recent notifications for client polling
 const recentNotifications: Array<{ id: string; leadId: string; leadName: string; fromEmail: string; subject: string; timestamp: string }> = [];
+const dismissedNotifications = new Set<string>(); // Track dismissed notifications
 
 export function addEmailNotification(leadId: string, leadName: string, fromEmail: string, subject: string) {
   const notification = {
@@ -106,17 +107,33 @@ export function addEmailNotification(leadId: string, leadName: string, fromEmail
   
   // Keep only last 50 notifications
   if (recentNotifications.length > 50) {
-    recentNotifications.shift();
+    const removed = recentNotifications.shift();
+    if (removed) {
+      dismissedNotifications.delete(removed.id); // Clean up dismissed tracking
+    }
   }
   
   return notification;
 }
 
 export function getRecentNotifications(since?: string) {
-  if (!since) return recentNotifications;
+  // Filter out dismissed notifications
+  let notifications = recentNotifications.filter(n => !dismissedNotifications.has(n.id));
+  
+  if (!since) return notifications;
   
   const sinceDate = new Date(since);
-  return recentNotifications.filter(n => new Date(n.timestamp) > sinceDate);
+  return notifications.filter(n => new Date(n.timestamp) > sinceDate);
+}
+
+export function dismissNotification(notificationId: string) {
+  dismissedNotifications.add(notificationId);
+}
+
+export function dismissNotificationsForLead(leadId: string) {
+  recentNotifications
+    .filter(n => n.leadId === leadId)
+    .forEach(n => dismissedNotifications.add(n.id));
 }
 
 // Background job to sync emails every 2 minutes

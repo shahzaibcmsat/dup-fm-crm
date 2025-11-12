@@ -26,9 +26,17 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
   // Get leads with unread emails
   const leadsWithUnread = leads.filter(lead => perLeadUnread[lead.id] > 0);
 
-  const handleLeadClick = (leadId: string) => {
+  const handleLeadClick = async (leadId: string) => {
     // Clear the unread count when clicking on the notification
     notificationStore.clearLead(leadId);
+    
+    // Dismiss backend notifications for this lead
+    try {
+      await fetch(`/api/notifications/dismiss/${leadId}`, { method: 'POST' });
+    } catch (e) {
+      console.error('Failed to dismiss notifications:', e);
+    }
+    
     // Navigate to the lead
     if (onNotificationClick) {
       onNotificationClick(leadId);

@@ -94,6 +94,9 @@ export default function Dashboard() {
     notificationStore.clearLead(selectedLead.id);
     (async () => {
       try {
+        // Dismiss backend notifications for this lead
+        await apiRequest('POST', `/api/notifications/dismiss/${selectedLead.id}`, {});
+        // Sync inbox to get latest emails
         await apiRequest('POST', '/api/emails/sync', {});
         queryClient.invalidateQueries({ queryKey: ['/api/emails', selectedLead.id] });
       } catch (e) {
