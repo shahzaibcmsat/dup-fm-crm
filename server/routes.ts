@@ -377,6 +377,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const email = await storage.createEmail(emailData);
       
       await storage.updateLeadStatus(lead.id, "Contacted");
+      
+      // Clear dismissed notification status for this lead so new replies will trigger notifications
+      const { clearDismissedForLead } = await import("./index");
+      clearDismissedForLead(lead.id);
 
       res.json({ success: true, email });
     } catch (error: any) {
@@ -415,6 +419,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Dismiss a specific notification by ID
+  app.post("/api/notifications/dismiss-id/:notificationId", async (req, res) => {
+    try {
+      const { dismissNotification } = await import("./index");
+      const { notificationId } = req.params;
+      dismissNotification(notificationId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Clear all notifications (admin action from Settings)
+  app.post("/api/notifications/clear", async (req, res) => {
+    try {
+      const { clearAllNotifications } = await import("./index");
+      clearAllNotifications();
+      res.json({ success: true, message: "All notifications cleared" });
+    } catch (error: any) {
+      console.error("Error clearing notifications:", error);
+      res.status(500).json({ message: error.message || "Failed to clear notifications" });
     }
   });
 

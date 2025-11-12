@@ -449,7 +449,6 @@ export default function Dashboard() {
             </SelectTrigger>
             <SelectContent className="text-sm sm:text-base">
               <SelectItem value="all">All Companies</SelectItem>
-              <SelectItem value="none">No Company</SelectItem>
               {companies.map((company) => (
                 <SelectItem key={company.id} value={company.id}>
                   <div className="flex items-center gap-2">

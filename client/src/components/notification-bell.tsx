@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ interface NotificationBellProps {
 
 export function NotificationBell({ onNotificationClick }: NotificationBellProps) {
   const { unreadTotal, perLeadUnread } = useUnreadEmailCounts();
+  const [isOpen, setIsOpen] = useState(false);
   const { data: leads = [] } = useQuery<Lead[]>({
     queryKey: ['/api/leads'],
   });
@@ -26,16 +27,33 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
   // Get leads with unread emails
   const leadsWithUnread = leads.filter(lead => perLeadUnread[lead.id] > 0);
 
+  // Helper function to dismiss with retry logic
+  const dismissWithRetry = async (url: string, retries = 2): Promise<boolean> => {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const resp = await fetch(url, { method: 'POST' });
+        if (resp.ok) return true;
+        console.warn(`Dismiss returned ${resp.status}, attempt ${i + 1}`);
+      } catch (e) {
+        console.error(`Dismiss failed attempt ${i + 1}:`, e);
+      }
+      // Small backoff between retries
+      if (i < retries) {
+        await new Promise(r => setTimeout(r, 200 * (i + 1)));
+      }
+    }
+    return false;
+  };
+
   const handleLeadClick = async (leadId: string) => {
     // Clear the unread count when clicking on the notification
     notificationStore.clearLead(leadId);
     
-    // Dismiss backend notifications for this lead
-    try {
-      await fetch(`/api/notifications/dismiss/${leadId}`, { method: 'POST' });
-    } catch (e) {
-      console.error('Failed to dismiss notifications:', e);
-    }
+    // Dismiss backend notifications for this lead with retry
+    await dismissWithRetry(`/api/notifications/dismiss/${leadId}`);
+    
+    // Close the popover
+    setIsOpen(false);
     
     // Navigate to the lead
     if (onNotificationClick) {
@@ -43,8 +61,21 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
     }
   };
 
+  const handleMarkAllRead = async () => {
+    // Clear all notifications on frontend
+    notificationStore.reset();
+    
+    // Dismiss all notifications on backend
+    for (const lead of leadsWithUnread) {
+      await dismissWithRetry(`/api/notifications/dismiss/${lead.id}`);
+    }
+    
+    // Close the popover
+    setIsOpen(false);
+  };
+
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -109,7 +140,7 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
               variant="outline"
               size="lg"
               className="w-full text-base"
-              onClick={() => notificationStore.reset()}
+              onClick={handleMarkAllRead}
             >
               Mark all as read
             </Button>

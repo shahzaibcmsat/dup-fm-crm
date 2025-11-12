@@ -12,10 +12,39 @@ interface EmailNotification {
   timestamp: string;
 }
 
+const SHOWN_NOTIFICATIONS_KEY = 'fmd-shown-notifications';
+const MAX_STORED_NOTIFICATIONS = 100;
+
+// Load shown notifications from localStorage
+function loadShownNotifications(): Set<string> {
+  try {
+    const stored = localStorage.getItem(SHOWN_NOTIFICATIONS_KEY);
+    if (stored) {
+      const arr = JSON.parse(stored);
+      return new Set(arr);
+    }
+  } catch (error) {
+    console.error('Failed to load shown notifications from localStorage', error);
+  }
+  return new Set();
+}
+
+// Save shown notifications to localStorage
+function saveShownNotifications(shown: Set<string>) {
+  try {
+    // Keep only the most recent ones to avoid localStorage bloat
+    const arr = Array.from(shown);
+    const trimmed = arr.slice(-MAX_STORED_NOTIFICATIONS);
+    localStorage.setItem(SHOWN_NOTIFICATIONS_KEY, JSON.stringify(trimmed));
+  } catch (error) {
+    console.error('Failed to save shown notifications to localStorage', error);
+  }
+}
+
 export function useEmailNotifications() {
   const { toast } = useToast();
   const lastCheckRef = useRef<string | null>(null);
-  const shownNotificationsRef = useRef<Set<string>>(new Set());
+  const shownNotificationsRef = useRef<Set<string>>(loadShownNotifications());
 
   useEffect(() => {
     const checkForNotifications = async () => {
@@ -49,6 +78,7 @@ export function useEmailNotifications() {
               });
               
               shownNotificationsRef.current.add(notification.id);
+              saveShownNotifications(shownNotificationsRef.current);
 
               // Update unread counters and refresh lead's email thread
               notificationStore.increment(notification.leadId);
@@ -59,9 +89,15 @@ export function useEmailNotifications() {
             }
           });
 
-          // Update last check time to the newest notification
-          const newest = data.notifications[data.notifications.length - 1];
-          lastCheckRef.current = newest.timestamp;
+          // Update last check time to the newest notification timestamp
+          if (data.notifications.length > 0) {
+            // Sort by timestamp to get the latest
+            const sortedByTime = [...data.notifications].sort(
+              (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            );
+            lastCheckRef.current = sortedByTime[0].timestamp;
+            console.log(`⏰ Updated last check time to: ${lastCheckRef.current}`);
+          }
         }
       } catch (error) {
         console.error('Failed to check for notifications:', error);
@@ -71,8 +107,8 @@ export function useEmailNotifications() {
     // Check immediately on mount
     checkForNotifications();
 
-    // Then check every 15 seconds (more frequent to catch notifications faster)
-    const interval = setInterval(checkForNotifications, 15000);
+    // Then check every 5 seconds for faster notification delivery
+    const interval = setInterval(checkForNotifications, 5000);
 
     return () => clearInterval(interval);
   }, [toast]);

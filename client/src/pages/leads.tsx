@@ -80,6 +80,16 @@ export default function Leads() {
     if (!selectedLead) return;
     // Clear client-side unread badge for this lead
     notificationStore.clearLead(selectedLead.id);
+    
+    // Dismiss backend notifications for this lead
+    (async () => {
+      try {
+        await fetch(`/api/notifications/dismiss/${selectedLead.id}`, { method: 'POST' });
+      } catch (e) {
+        console.error('Failed to dismiss notifications:', e);
+      }
+    })();
+    
     // Proactively trigger server-side sync so the thread is fresh
     (async () => {
       try {
@@ -271,7 +281,6 @@ export default function Leads() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Companies</SelectItem>
-              <SelectItem value="none">No Company</SelectItem>
               {companies.map((company) => (
                 <SelectItem key={company.id} value={company.id}>
                   <div className="flex items-center gap-2">

@@ -186,7 +186,6 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
                   <SelectValue placeholder="Select a company" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No Company</SelectItem>
                   {companies.map((company) => (
                     <SelectItem key={company.id} value={company.id}>
                       {company.name}

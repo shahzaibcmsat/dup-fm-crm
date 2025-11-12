@@ -92,7 +92,8 @@ app.use((req, res, next) => {
 
 // Store recent notifications for client polling
 const recentNotifications: Array<{ id: string; leadId: string; leadName: string; fromEmail: string; subject: string; timestamp: string }> = [];
-const dismissedNotifications = new Set<string>(); // Track dismissed notifications
+const dismissedNotifications = new Set<string>(); // Track dismissed notification IDs
+const dismissedLeads = new Set<string>(); // Track leads whose notifications have been dismissed
 
 export function addEmailNotification(leadId: string, leadName: string, fromEmail: string, subject: string) {
   const notification = {
@@ -117,23 +118,64 @@ export function addEmailNotification(leadId: string, leadName: string, fromEmail
 }
 
 export function getRecentNotifications(since?: string) {
-  // Filter out dismissed notifications
-  let notifications = recentNotifications.filter(n => !dismissedNotifications.has(n.id));
+  // Filter out dismissed notifications and notifications for dismissed leads
+  let notifications = recentNotifications.filter(n => 
+    !dismissedNotifications.has(n.id) && !dismissedLeads.has(n.leadId)
+  );
   
-  if (!since) return notifications;
-  
-  const sinceDate = new Date(since);
-  return notifications.filter(n => new Date(n.timestamp) > sinceDate);
+  // Keep only the latest notification per lead (to avoid showing old notifications)
+  const latestByLead = new Map<string, typeof notifications[0]>();
+  for (const n of notifications) {
+    const existing = latestByLead.get(n.leadId);
+    if (!existing || new Date(n.timestamp) > new Date(existing.timestamp)) {
+      latestByLead.set(n.leadId, n);
+    }
+  }
+
+  // Get array of latest notifications per lead
+  let result = Array.from(latestByLead.values());
+
+  // If a since param was provided, filter by timestamp AFTER grouping
+  if (since) {
+    const sinceDate = new Date(since);
+    result = result.filter(n => new Date(n.timestamp) > sinceDate);
+  }
+
+  // Return sorted newest-first
+  return result.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 }
 
 export function dismissNotification(notificationId: string) {
   dismissedNotifications.add(notificationId);
+  console.log(`🔕 Dismissed notification: ${notificationId}`);
 }
 
 export function dismissNotificationsForLead(leadId: string) {
+  // Add lead to dismissed set to prevent future notifications from showing
+  dismissedLeads.add(leadId);
+  
+  // Also mark all existing notifications for this lead as dismissed
   recentNotifications
     .filter(n => n.leadId === leadId)
     .forEach(n => dismissedNotifications.add(n.id));
+  
+  console.log(`🔕 Dismissed all notifications for lead: ${leadId}`);
+}
+
+export function clearDismissedForLead(leadId: string) {
+  // Remove lead from dismissed set so new notifications can appear
+  dismissedLeads.delete(leadId);
+  console.log(`🔔 Cleared dismissed status for lead: ${leadId}, new replies will show notifications`);
+}
+
+export function clearAllNotifications() {
+  // Clear all notifications and dismissed tracking
+  recentNotifications.length = 0;
+  dismissedNotifications.clear();
+  dismissedLeads.clear();
+  log('🧹 All notifications cleared');
 }
 
 // Background job to sync emails every 2 minutes

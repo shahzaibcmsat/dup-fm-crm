@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, CheckCircle2, Database, Key, Server, Save, Eye, EyeOff } from "lucide-react";
+import { Mail, CheckCircle2, Database, Key, Server, Save, Eye, EyeOff, Bell, BellOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { queryClient } from "@/lib/queryClient";
 
 interface ConfigData {
   DATABASE_URL: string;
@@ -37,6 +38,7 @@ export default function Settings() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
@@ -92,6 +94,31 @@ export default function Settings() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    setClearing(true);
+    try {
+      const res = await fetch("/api/notifications/clear", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+      
+      // Invalidate notifications so UI refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/emails'] });
+      
+      toast({
+        title: "Notifications cleared",
+        description: data?.message || "All notifications have been removed.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to clear notifications",
+        description: error?.message || "Server error",
+        variant: "destructive",
+      });
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -154,10 +181,21 @@ export default function Settings() {
             Manage your API keys and environment configuration
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving || loading} className="text-sm sm:text-base">
-          <Save className="w-4 h-4 mr-2" />
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={handleClearNotifications} 
+            disabled={clearing} 
+            variant="destructive" 
+            className="text-sm sm:text-base"
+          >
+            <BellOff className="w-4 h-4 mr-2" />
+            {clearing ? "Clearing..." : "Clear Notifications"}
+          </Button>
+          <Button onClick={handleSave} disabled={saving || loading} className="text-sm sm:text-base">
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
 
       {loading ? (
