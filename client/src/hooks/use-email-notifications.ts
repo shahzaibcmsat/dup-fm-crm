@@ -45,6 +45,7 @@ export function useEmailNotifications() {
   const { toast } = useToast();
   const lastCheckRef = useRef<string | null>(null);
   const shownNotificationsRef = useRef<Set<string>>(loadShownNotifications());
+  const initializedRef = useRef(false);
 
   useEffect(() => {
     const checkForNotifications = async () => {
@@ -66,6 +67,31 @@ export function useEmailNotifications() {
         if (data.notifications && data.notifications.length > 0) {
           console.log(`📬 Received ${data.notifications.length} notifications`);
           
+          // On first load, sync backend with frontend - mark all current as already shown
+          if (!initializedRef.current) {
+            console.log('🔄 Initial sync: marking existing notifications as shown');
+            data.notifications.forEach((notification: EmailNotification) => {
+              shownNotificationsRef.current.add(notification.id);
+              // Add to notification store without showing toast
+              notificationStore.increment(notification.leadId);
+            });
+            saveShownNotifications(shownNotificationsRef.current);
+            initializedRef.current = true;
+            
+            // Update last check time
+            if (data.notifications.length > 0) {
+              const sortedByTime = [...data.notifications].sort(
+                (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+              );
+              lastCheckRef.current = sortedByTime[0].timestamp;
+            }
+            
+            // Refresh queries
+            queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+            return;
+          }
+          
+          // After initialization, show new notifications as toasts
           data.notifications.forEach((notification: EmailNotification) => {
             // Only show if we haven't shown this notification before
             if (!shownNotificationsRef.current.has(notification.id)) {
@@ -98,6 +124,9 @@ export function useEmailNotifications() {
             lastCheckRef.current = sortedByTime[0].timestamp;
             console.log(`⏰ Updated last check time to: ${lastCheckRef.current}`);
           }
+        } else if (!initializedRef.current) {
+          // No notifications on first load - just mark as initialized
+          initializedRef.current = true;
         }
       } catch (error) {
         console.error('Failed to check for notifications:', error);
