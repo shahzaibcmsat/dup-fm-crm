@@ -178,12 +178,12 @@ export function clearAllNotifications() {
   log('🧹 All notifications cleared');
 }
 
-// Background job to sync emails every 2 minutes
+// Background job to sync emails every 30 seconds for faster notifications
 function startEmailSyncJob() {
-  const SYNC_INTERVAL = 2 * 60 * 1000; // 2 minutes
+  const SYNC_INTERVAL = 30 * 1000; // 30 seconds (faster sync for quicker notifications)
   let lastSyncTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // Start from 24h ago
 
-  log('📧 Email sync job started (checking every 2 minutes)');
+  log('📧 Email sync job started (checking every 30 seconds)');
 
   const syncEmails = async () => {
     try {
@@ -209,6 +209,7 @@ function startEmailSyncJob() {
         log(`     Subject: ${email.subject || '(No Subject)'}`);
         log(`     Message ID: ${email.id}`);
         log(`     Conversation ID: ${email.conversationId || 'none'}`);
+        log(`     Received Time: ${email.receivedDateTime}`);
         
         if (!fromAddress) {
           log(`     ⚠️ No from address, skipping`);
@@ -270,6 +271,7 @@ function startEmailSyncJob() {
           // Add notification for this new reply
           const notification = addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
           log(`     🔔 Created notification ${notification.id} for ${lead.clientName}`);
+          log(`     🔔 Total notifications in queue: ${recentNotifications.length}`);
         } else {
           log(`     ⚠️ No matching lead found for email: ${fromAddress}`);
         }
@@ -291,6 +293,6 @@ function startEmailSyncJob() {
   // Run immediately on startup
   setTimeout(syncEmails, 5000); // Wait 5 seconds after server start
 
-  // Then run every 2 minutes
+  // Then run every 30 seconds
   setInterval(syncEmails, SYNC_INTERVAL);
 }

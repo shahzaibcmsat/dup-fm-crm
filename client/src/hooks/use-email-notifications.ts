@@ -54,23 +54,29 @@ export function useEmailNotifications() {
         const url = lastCheckRef.current 
           ? `/api/notifications/emails?since=${lastCheckRef.current}`
           : '/api/notifications/emails';
+        
+        console.log(`🔍 CLIENT: Polling notifications - URL: ${url}`);
           
         const response = await fetch(url);
         
         if (!response.ok) {
-          console.error('Failed to fetch notifications:', response.statusText);
+          console.error('❌ CLIENT: Failed to fetch notifications:', response.statusText);
           return;
         }
         
         const data = await response.json();
+        console.log(`📡 CLIENT: Received response - ${data.notifications?.length || 0} notifications`);
 
         if (data.notifications && data.notifications.length > 0) {
-          console.log(`📬 Received ${data.notifications.length} notifications`);
+          console.log(`📬 CLIENT: Processing ${data.notifications.length} notifications`);
+          console.log(`   Initialized: ${initializedRef.current}`);
+          console.log(`   Shown IDs count: ${shownNotificationsRef.current.size}`);
           
           // On first load, sync backend with frontend - mark all current as already shown
           if (!initializedRef.current) {
-            console.log('🔄 Initial sync: marking existing notifications as shown');
+            console.log('🔄 CLIENT: Initial sync - marking existing notifications as shown');
             data.notifications.forEach((notification: EmailNotification) => {
+              console.log(`   Adding to shown: ${notification.id} for ${notification.leadName}`);
               shownNotificationsRef.current.add(notification.id);
               // Add to notification store without showing toast
               notificationStore.increment(notification.leadId);
@@ -84,6 +90,7 @@ export function useEmailNotifications() {
                 (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
               );
               lastCheckRef.current = sortedByTime[0].timestamp;
+              console.log(`⏰ CLIENT: Set last check time to: ${lastCheckRef.current}`);
             }
             
             // Refresh queries
@@ -92,10 +99,12 @@ export function useEmailNotifications() {
           }
           
           // After initialization, show new notifications as toasts
+          let newCount = 0;
           data.notifications.forEach((notification: EmailNotification) => {
             // Only show if we haven't shown this notification before
             if (!shownNotificationsRef.current.has(notification.id)) {
-              console.log(`🔔 Showing notification for lead: ${notification.leadName}`);
+              console.log(`🔔 CLIENT: NEW notification - showing toast for ${notification.leadName}`);
+              newCount++;
               
               toast({
                 title: "📧 New Email Reply!",
@@ -112,8 +121,14 @@ export function useEmailNotifications() {
               queryClient.invalidateQueries({ queryKey: ['/api/emails', notification.leadId] });
               // Also refresh leads to reflect status change to Replied
               queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+            } else {
+              console.log(`⏭️  CLIENT: Skipping already shown notification: ${notification.id}`);
             }
           });
+          
+          if (newCount > 0) {
+            console.log(`✨ CLIENT: Showed ${newCount} new toast notifications`);
+          }
 
           // Update last check time to the newest notification timestamp
           if (data.notifications.length > 0) {
@@ -122,23 +137,28 @@ export function useEmailNotifications() {
               (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
             );
             lastCheckRef.current = sortedByTime[0].timestamp;
-            console.log(`⏰ Updated last check time to: ${lastCheckRef.current}`);
+            console.log(`⏰ CLIENT: Updated last check time to: ${lastCheckRef.current}`);
           }
         } else if (!initializedRef.current) {
           // No notifications on first load - just mark as initialized
+          console.log('✅ CLIENT: No notifications on initial load, marking as initialized');
           initializedRef.current = true;
         }
       } catch (error) {
-        console.error('Failed to check for notifications:', error);
+        console.error('❌ CLIENT: Failed to check for notifications:', error);
       }
     };
 
     // Check immediately on mount
+    console.log('🚀 CLIENT: Starting notification polling system');
     checkForNotifications();
 
     // Then check every 5 seconds for faster notification delivery
     const interval = setInterval(checkForNotifications, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log('🛑 CLIENT: Stopping notification polling');
+      clearInterval(interval);
+    };
   }, [toast]);
 }

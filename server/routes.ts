@@ -404,8 +404,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { getRecentNotifications } = await import("./index");
       const since = req.query.since as string | undefined;
       const notifications = getRecentNotifications(since);
+      console.log(`📡 Notification request - since: ${since || 'all'}, returning: ${notifications.length} notifications`);
+      if (notifications.length > 0) {
+        console.log(`   Notification IDs: ${notifications.map(n => n.id).join(', ')}`);
+      }
       res.json({ notifications });
     } catch (error: any) {
+      console.error('❌ Error fetching notifications:', error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -415,6 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { dismissNotificationsForLead } = await import("./index");
       const { leadId } = req.params;
+      console.log(`🔕 Dismissing notifications for lead: ${leadId}`);
       dismissNotificationsForLead(leadId);
       res.json({ success: true });
     } catch (error: any) {
