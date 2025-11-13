@@ -43,21 +43,12 @@ function saveShownNotifications(shown: Set<string>) {
 
 export function useEmailNotifications() {
   const { toast } = useToast();
-  const lastCheckRef = useRef<string | null>(null);
   const shownNotificationsRef = useRef<Set<string>>(loadShownNotifications());
-  const initializedRef = useRef(false);
 
   useEffect(() => {
     const checkForNotifications = async () => {
       try {
-        // Build URL with optional since parameter
-        const url = lastCheckRef.current 
-          ? `/api/notifications/emails?since=${lastCheckRef.current}`
-          : '/api/notifications/emails';
-        
-        console.log(`🔍 CLIENT: Polling notifications - URL: ${url}`);
-          
-        const response = await fetch(url);
+        const response = await fetch('/api/notifications/emails');
         
         if (!response.ok) {
           console.error('❌ CLIENT: Failed to fetch notifications:', response.statusText);
@@ -65,84 +56,52 @@ export function useEmailNotifications() {
         }
         
         const data = await response.json();
-        console.log(`📡 CLIENT: Received response - ${data.notifications?.length || 0} notifications`);
+        console.log(`📡 CLIENT: Received ${data.notifications?.length || 0} notifications from backend`);
 
         if (data.notifications && data.notifications.length > 0) {
-          console.log(`📬 CLIENT: Processing ${data.notifications.length} notifications`);
-          console.log(`   Initialized: ${initializedRef.current}`);
-          console.log(`   Shown IDs count: ${shownNotificationsRef.current.size}`);
-          
-          // On first load, sync backend with frontend - mark all current as already shown
-          if (!initializedRef.current) {
-            console.log('🔄 CLIENT: Initial sync - marking existing notifications as shown');
-            data.notifications.forEach((notification: EmailNotification) => {
-              console.log(`   Adding to shown: ${notification.id} for ${notification.leadName}`);
-              shownNotificationsRef.current.add(notification.id);
-              // Add to notification store without showing toast
-              notificationStore.increment(notification.leadId);
-            });
-            saveShownNotifications(shownNotificationsRef.current);
-            initializedRef.current = true;
-            
-            // Update last check time
-            if (data.notifications.length > 0) {
-              const sortedByTime = [...data.notifications].sort(
-                (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-              );
-              lastCheckRef.current = sortedByTime[0].timestamp;
-              console.log(`⏰ CLIENT: Set last check time to: ${lastCheckRef.current}`);
-            }
-            
-            // Refresh queries
-            queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
-            return;
-          }
-          
-          // After initialization, show new notifications as toasts
           let newCount = 0;
+          
           data.notifications.forEach((notification: EmailNotification) => {
-            // Only show if we haven't shown this notification before
-            if (!shownNotificationsRef.current.has(notification.id)) {
-              console.log(`🔔 CLIENT: NEW notification - showing toast for ${notification.leadName}`);
+            // Check if this notification has been shown before
+            const alreadyShown = shownNotificationsRef.current.has(notification.id);
+            console.log(`   📬 Notification ${notification.id} for ${notification.leadName} - Already shown: ${alreadyShown}`);
+            
+            if (!alreadyShown) {
+              console.log(`   🔔 CLIENT: NEW notification - showing toast for ${notification.leadName}`);
               newCount++;
               
+              // Show toast
               toast({
                 title: "📧 New Email Reply!",
                 description: `${notification.leadName} replied: "${notification.subject}"`,
                 duration: 8000,
               });
               
+              // Mark as shown
               shownNotificationsRef.current.add(notification.id);
               saveShownNotifications(shownNotificationsRef.current);
 
-              // Update unread counters and refresh lead's email thread
+              // Update unread counter
               notificationStore.increment(notification.leadId);
-              // Refresh emails for that lead (if panel open)
+              
+              // Refresh data
               queryClient.invalidateQueries({ queryKey: ['/api/emails', notification.leadId] });
-              // Also refresh leads to reflect status change to Replied
               queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
             } else {
-              console.log(`⏭️  CLIENT: Skipping already shown notification: ${notification.id}`);
+              // Already shown, but update badge count if needed
+              const { perLeadUnread } = notificationStore.getState();
+              if (!perLeadUnread[notification.leadId] || perLeadUnread[notification.leadId] === 0) {
+                console.log(`   🔄 Syncing badge count for ${notification.leadName}`);
+                notificationStore.increment(notification.leadId);
+              }
             }
           });
           
           if (newCount > 0) {
             console.log(`✨ CLIENT: Showed ${newCount} new toast notifications`);
           }
-
-          // Update last check time to the newest notification timestamp
-          if (data.notifications.length > 0) {
-            // Sort by timestamp to get the latest
-            const sortedByTime = [...data.notifications].sort(
-              (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-            );
-            lastCheckRef.current = sortedByTime[0].timestamp;
-            console.log(`⏰ CLIENT: Updated last check time to: ${lastCheckRef.current}`);
-          }
-        } else if (!initializedRef.current) {
-          // No notifications on first load - just mark as initialized
-          console.log('✅ CLIENT: No notifications on initial load, marking as initialized');
-          initializedRef.current = true;
+        } else {
+          console.log('   ℹ️ CLIENT: No notifications from backend');
         }
       } catch (error) {
         console.error('❌ CLIENT: Failed to check for notifications:', error);
@@ -153,7 +112,7 @@ export function useEmailNotifications() {
     console.log('🚀 CLIENT: Starting notification polling system');
     checkForNotifications();
 
-    // Then check every 5 seconds for faster notification delivery
+    // Then check every 5 seconds
     const interval = setInterval(checkForNotifications, 5000);
 
     return () => {

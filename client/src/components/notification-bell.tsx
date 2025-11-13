@@ -46,29 +46,39 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
   };
 
   const handleLeadClick = async (leadId: string) => {
+    console.log(`🔔 BELL: User clicked notification for lead: ${leadId}`);
+    
     // Clear the unread count when clicking on the notification
     notificationStore.clearLead(leadId);
+    console.log(`   ✅ BELL: Cleared frontend badge for lead: ${leadId}`);
     
     // Dismiss backend notifications for this lead with retry
-    await dismissWithRetry(`/api/notifications/dismiss/${leadId}`);
+    const dismissed = await dismissWithRetry(`/api/notifications/dismiss/${leadId}`);
+    console.log(`   ${dismissed ? '✅' : '❌'} BELL: Backend dismissal ${dismissed ? 'successful' : 'failed'}`);
     
     // Close the popover
     setIsOpen(false);
+    console.log(`   ✅ BELL: Closed popover`);
     
     // Navigate to the lead
     if (onNotificationClick) {
       onNotificationClick(leadId);
+      console.log(`   ✅ BELL: Navigating to lead`);
     }
   };
 
   const handleMarkAllRead = async () => {
+    console.log(`🔔 BELL: User clicked Mark All as Read for ${leadsWithUnread.length} leads`);
+    
     // Clear all notifications on frontend
     notificationStore.reset();
+    console.log(`   ✅ BELL: Cleared all frontend badges`);
     
     // Dismiss all notifications on backend
     for (const lead of leadsWithUnread) {
       await dismissWithRetry(`/api/notifications/dismiss/${lead.id}`);
     }
+    console.log(`   ✅ BELL: Dismissed all on backend`);
     
     // Close the popover
     setIsOpen(false);

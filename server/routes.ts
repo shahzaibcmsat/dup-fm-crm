@@ -377,10 +377,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const email = await storage.createEmail(emailData);
       
       await storage.updateLeadStatus(lead.id, "Contacted");
-      
-      // Clear dismissed notification status for this lead so new replies will trigger notifications
-      const { clearDismissedForLead } = await import("./index");
-      clearDismissedForLead(lead.id);
 
       res.json({ success: true, email });
     } catch (error: any) {

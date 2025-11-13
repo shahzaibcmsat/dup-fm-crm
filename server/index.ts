@@ -92,8 +92,7 @@ app.use((req, res, next) => {
 
 // Store recent notifications for client polling
 const recentNotifications: Array<{ id: string; leadId: string; leadName: string; fromEmail: string; subject: string; timestamp: string }> = [];
-const dismissedNotifications = new Set<string>(); // Track dismissed notification IDs
-const dismissedLeads = new Set<string>(); // Track leads whose notifications have been dismissed
+const dismissedNotifications = new Set<string>(); // Track dismissed notification IDs only
 
 export function addEmailNotification(leadId: string, leadName: string, fromEmail: string, subject: string) {
   const notification = {
@@ -114,14 +113,20 @@ export function addEmailNotification(leadId: string, leadName: string, fromEmail
     }
   }
   
+  console.log(`🔔 BACKEND: Created notification ${notification.id} for lead ${leadName} (${leadId})`);
+  console.log(`   Total notifications in queue: ${recentNotifications.length}`);
+  console.log(`   Dismissed notifications: ${dismissedNotifications.size}`);
+  
   return notification;
 }
 
 export function getRecentNotifications(since?: string) {
-  // Filter out dismissed notifications and notifications for dismissed leads
+  // Filter out only dismissed notifications
   let notifications = recentNotifications.filter(n => 
-    !dismissedNotifications.has(n.id) && !dismissedLeads.has(n.leadId)
+    !dismissedNotifications.has(n.id)
   );
+  
+  console.log(`📊 BACKEND: Getting notifications - Total: ${recentNotifications.length}, After filtering dismissed: ${notifications.length}`);
   
   // Keep only the latest notification per lead (to avoid showing old notifications)
   const latestByLead = new Map<string, typeof notifications[0]>();
@@ -139,6 +144,7 @@ export function getRecentNotifications(since?: string) {
   if (since) {
     const sinceDate = new Date(since);
     result = result.filter(n => new Date(n.timestamp) > sinceDate);
+    console.log(`   Filtered by since ${since}: ${result.length} notifications`);
   }
 
   // Return sorted newest-first
@@ -149,32 +155,26 @@ export function getRecentNotifications(since?: string) {
 
 export function dismissNotification(notificationId: string) {
   dismissedNotifications.add(notificationId);
-  console.log(`🔕 Dismissed notification: ${notificationId}`);
+  console.log(`🔕 BACKEND: Dismissed notification: ${notificationId}`);
 }
 
 export function dismissNotificationsForLead(leadId: string) {
-  // Add lead to dismissed set to prevent future notifications from showing
-  dismissedLeads.add(leadId);
-  
-  // Also mark all existing notifications for this lead as dismissed
-  recentNotifications
+  // Mark all existing notifications for this lead as dismissed
+  const dismissed = recentNotifications
     .filter(n => n.leadId === leadId)
-    .forEach(n => dismissedNotifications.add(n.id));
+    .map(n => {
+      dismissedNotifications.add(n.id);
+      return n.id;
+    });
   
-  console.log(`🔕 Dismissed all notifications for lead: ${leadId}`);
-}
-
-export function clearDismissedForLead(leadId: string) {
-  // Remove lead from dismissed set so new notifications can appear
-  dismissedLeads.delete(leadId);
-  console.log(`🔔 Cleared dismissed status for lead: ${leadId}, new replies will show notifications`);
+  console.log(`🔕 BACKEND: Dismissed ${dismissed.length} notifications for lead: ${leadId}`);
+  console.log(`   Notification IDs: ${dismissed.join(', ')}`);
 }
 
 export function clearAllNotifications() {
   // Clear all notifications and dismissed tracking
   recentNotifications.length = 0;
   dismissedNotifications.clear();
-  dismissedLeads.clear();
   log('🧹 All notifications cleared');
 }
 
