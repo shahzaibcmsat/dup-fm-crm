@@ -56,11 +56,14 @@ export function AppSidebar() {
   // Filter menu items based on user role
   const filteredMenuItems = menuItems.filter(item => {
     if (userRole === "client") {
-      // Hide Import and Settings for client users
+      // Hide Import and Settings for client users, but show Dashboard (leads)
       return item.title !== "Import" && item.title !== "Settings";
     }
     return true;
   });
+
+  // Show companies section for all users
+  const showCompanies = true;
 
   return (
     <Sidebar>
@@ -72,68 +75,72 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sm font-semibold">Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {filteredMenuItems.map((item) => {
-                const isFMDDashboard = item.title === "FMD Dashboard";
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={location === item.url} className="text-base py-2.5">
-                      <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
-                        <div className="relative">
-                          <item.icon className="w-5 h-5" />
-                          {isFMDDashboard && unreadTotal > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs leading-none rounded-full px-1.5 py-0.5 shadow font-bold">
-                              {unreadTotal > 9 ? '9+' : unreadTotal}
-                            </span>
-                          )}
-                        </div>
-                        <span className="font-medium">{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {filteredMenuItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-sm font-semibold">Navigation</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredMenuItems.map((item) => {
+                  const isFMDDashboard = item.title === "FMD Dashboard";
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild isActive={location === item.url} className="text-base py-2.5">
+                        <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
+                          <div className="relative">
+                            <item.icon className="w-5 h-5" />
+                            {isFMDDashboard && unreadTotal > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs leading-none rounded-full px-1.5 py-0.5 shadow font-bold">
+                                {unreadTotal > 9 ? '9+' : unreadTotal}
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-medium">{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <div className="flex items-center justify-between px-2 py-1">
-            <SidebarGroupLabel className="text-sm font-semibold">FMD Companies</SidebarGroupLabel>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7"
-              onClick={() => setIsAddCompanyOpen(true)}
-              data-testid="button-add-company"
-            >
-              <Plus className="h-5 w-5" />
-            </Button>
-          </div>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {companies.length === 0 ? (
-                <div className="px-2 py-2 text-sm text-muted-foreground">
-                  No companies yet
-                </div>
-              ) : (
-                companies.map((company) => (
-                  <SidebarMenuItem key={company.id}>
-                    <SidebarMenuButton asChild isActive={location === `/companies/${company.id}`} className="text-base py-2.5">
-                      <Link href={`/companies/${company.id}`} data-testid={`link-company-${company.id}`}>
-                        <Building2 className="w-5 h-5" />
-                        <span className="font-medium">{company.name}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {showCompanies && (
+          <SidebarGroup>
+            <div className="flex items-center justify-between px-2 py-1">
+              <SidebarGroupLabel className="text-sm font-semibold">FMD Companies</SidebarGroupLabel>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                onClick={() => setIsAddCompanyOpen(true)}
+                data-testid="button-add-company"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
+            </div>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {companies.length === 0 ? (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">
+                    No companies yet
+                  </div>
+                ) : (
+                  companies.map((company) => (
+                    <SidebarMenuItem key={company.id}>
+                      <SidebarMenuButton asChild isActive={location === `/companies/${company.id}`} className="text-base py-2.5">
+                        <Link href={`/companies/${company.id}`} data-testid={`link-company-${company.id}`}>
+                          <Building2 className="w-5 h-5" />
+                          <span className="font-medium">{company.name}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-sm font-semibold">Inventory</SidebarGroupLabel>

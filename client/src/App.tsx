@@ -51,6 +51,9 @@ function AuthenticatedApp() {
   const handleLogout = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("username");
+    // Clear notification data on logout
+    localStorage.removeItem("fmd-email-notifications");
+    localStorage.removeItem("fmd-shown-notifications");
     navigate("/login");
   };
 

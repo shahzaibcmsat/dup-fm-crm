@@ -19,6 +19,10 @@ export default function Login() {
 
     // Simple authentication logic
     if (username === "Admin" && password === "NapolloDevops") {
+      // Clear any old notifications on fresh login
+      localStorage.removeItem("fmd-email-notifications");
+      localStorage.removeItem("fmd-shown-notifications");
+      
       localStorage.setItem("userRole", "admin");
       localStorage.setItem("username", "Admin");
       toast({
@@ -27,6 +31,10 @@ export default function Login() {
       });
       setLocation("/");
     } else if (username === "FMD" && password === "Napollo@786") {
+      // Clear any old notifications on fresh login
+      localStorage.removeItem("fmd-email-notifications");
+      localStorage.removeItem("fmd-shown-notifications");
+      
       localStorage.setItem("userRole", "client");
       localStorage.setItem("username", "FMD");
       toast({
