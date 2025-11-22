@@ -1,0 +1,367 @@
+import React from "react";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Mail, CheckCircle2, Database, Key, Server, Save, Eye, EyeOff, Bell, BellOff } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
+import { queryClient } from "@/lib/queryClient";
+
+interface ConfigData {
+  DATABASE_URL: string;
+  GMAIL_CLIENT_ID: string;
+  GMAIL_CLIENT_SECRET: string;
+  GMAIL_REFRESH_TOKEN: string;
+  GMAIL_REDIRECT_URI: string;
+  EMAIL_FROM_ADDRESS: string;
+  GROQ_API_KEY: string;
+  GROQ_MODEL: string;
+  PORT: string;
+  NODE_ENV: string;
+}
+
+export default function Settings() {
+  const [config, setConfig] = useState<ConfigData>({
+    DATABASE_URL: '',
+    GMAIL_CLIENT_ID: '',
+    GMAIL_CLIENT_SECRET: '',
+    GMAIL_REFRESH_TOKEN: '',
+    GMAIL_REDIRECT_URI: '',
+    EMAIL_FROM_ADDRESS: '',
+    GROQ_API_KEY: '',
+    GROQ_MODEL: '',
+    PORT: '',
+    NODE_ENV: '',
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const loadConfig = async () => {
+    try {
+      const res = await fetch('/api/config');
+      const data = await res.json();
+      setConfig(data);
+    } catch (e) {
+      console.error("Failed to load configuration", e);
+      toast({
+        title: "Error",
+        description: "Failed to load configuration",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast({
+          title: "Success",
+          description: data.message || "Configuration saved successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: data.errors?.join(', ') || data.message || "Failed to save configuration",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save configuration",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    setClearing(true);
+    try {
+      const res = await fetch("/api/notifications/clear", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+      
+      // Invalidate notifications so UI refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/emails'] });
+      
+      toast({
+        title: "Notifications cleared",
+        description: data?.message || "All notifications have been removed.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to clear notifications",
+        description: error?.message || "Server error",
+        variant: "destructive",
+      });
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const handleInputChange = (field: keyof ConfigData, value: string) => {
+    setConfig(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleSecretVisibility = (field: string) => {
+    setShowSecrets(prev => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const renderSecretInput = (field: keyof ConfigData, label: string, placeholder: string, icon?: React.ReactNode) => (
+    <div className="space-y-2">
+      <Label htmlFor={field} className="flex items-center gap-2">
+        {icon}
+        {label}
+      </Label>
+      <div className="flex gap-2">
+        <Input
+          id={field}
+          type={showSecrets[field] ? "text" : "password"}
+          value={config[field]}
+          onChange={(e) => handleInputChange(field, e.target.value)}
+          placeholder={placeholder}
+          className="flex-1"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => toggleSecretVisibility(field)}
+        >
+          {showSecrets[field] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const renderInput = (field: keyof ConfigData, label: string, placeholder: string, icon?: React.ReactNode) => (
+    <div className="space-y-2">
+      <Label htmlFor={field} className="flex items-center gap-2">
+        {icon}
+        {label}
+      </Label>
+      <Input
+        id={field}
+        value={config[field]}
+        onChange={(e) => handleInputChange(field, e.target.value)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold mb-2">Settings</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Manage your API keys and environment configuration
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={handleClearNotifications} 
+            disabled={clearing} 
+            variant="destructive" 
+            className="text-sm sm:text-base"
+          >
+            <BellOff className="w-4 h-4 mr-2" />
+            {clearing ? "Clearing..." : "Clear Notifications"}
+          </Button>
+          <Button onClick={handleSave} disabled={saving || loading} className="text-sm sm:text-base">
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-muted-foreground">Loading configuration...</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4 sm:space-y-6">
+          {/* Database Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Database className="w-4 h-4 sm:w-5 sm:h-5" />
+                Database Configuration
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                PostgreSQL database connection settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {renderSecretInput('DATABASE_URL', 'Database URL', 'postgresql://user:password@host:port/database', <Database className="w-4 h-4" />)}
+            </CardContent>
+          </Card>
+
+          {/* Gmail Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5" />
+                Gmail Configuration
+              </CardTitle>
+              <CardDescription>
+                Google OAuth credentials for Gmail API integration
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {renderSecretInput('GMAIL_CLIENT_ID', 'Gmail Client ID', 'Your Google OAuth Client ID', <Key className="w-4 h-4" />)}
+              {renderSecretInput('GMAIL_CLIENT_SECRET', 'Gmail Client Secret', 'Your Google OAuth Client Secret', <Key className="w-4 h-4" />)}
+              {renderSecretInput('GMAIL_REFRESH_TOKEN', 'Gmail Refresh Token', 'Get from OAuth flow', <Key className="w-4 h-4" />)}
+              {renderInput('GMAIL_REDIRECT_URI', 'Redirect URI', 'http://localhost:5000/api/auth/callback')}
+              {renderInput('EMAIL_FROM_ADDRESS', 'From Email Address', 'your-email@gmail.com', <Mail className="w-4 h-4" />)}
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">
+                  To get your refresh token, visit: <a href="/api/auth/gmail" target="_blank" rel="noopener noreferrer" className="text-primary underline">Authorize Gmail</a>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  After authorization, copy the refresh token and paste it above.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Groq AI Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="w-5 h-5" />
+                Groq AI Configuration
+              </CardTitle>
+              <CardDescription>
+                AI-powered grammar checking and text improvement
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {renderSecretInput('GROQ_API_KEY', 'Groq API Key', 'gsk_...', <Key className="w-4 h-4" />)}
+              {renderInput('GROQ_MODEL', 'Groq Model', 'llama-3.3-70b-versatile')}
+              <p className="text-xs text-muted-foreground">
+                Get your API key from{' '}
+                <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                  Groq Console
+                </a>
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Server Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="w-5 h-5" />
+                Server Configuration
+              </CardTitle>
+              <CardDescription>
+                Application server settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {renderInput('PORT', 'Server Port', '5000')}
+              {renderInput('NODE_ENV', 'Environment', 'development')}
+            </CardContent>
+          </Card>
+
+          {/* Connected Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Connection Status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Gmail</p>
+                    <p className="text-sm text-muted-foreground">
+                      {config.EMAIL_FROM_ADDRESS || "Not configured"}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant={config.GMAIL_CLIENT_ID && config.GMAIL_CLIENT_SECRET && config.GMAIL_REFRESH_TOKEN ? "default" : "secondary"} className="gap-1">
+                  {config.GMAIL_CLIENT_ID && config.GMAIL_CLIENT_SECRET && config.GMAIL_REFRESH_TOKEN ? (
+                    <>
+                      <CheckCircle2 className="w-3 h-3" />
+                      Connected
+                    </>
+                  ) : (
+                    "Not Connected"
+                  )}
+                </Badge>
+              </div>
+
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                    <Server className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Groq AI</p>
+                    <p className="text-sm text-muted-foreground">Grammar checking enabled</p>
+                  </div>
+                </div>
+                <Badge variant={config.GROQ_API_KEY ? "default" : "secondary"} className="gap-1">
+                  {config.GROQ_API_KEY ? (
+                    <>
+                      <CheckCircle2 className="w-3 h-3" />
+                      Connected
+                    </>
+                  ) : (
+                    "Not Connected"
+                  )}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lead Statuses */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Lead Statuses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="default">NEW</Badge>
+                <Badge variant="secondary">CONTACTED</Badge>
+                <Badge variant="outline">QUALIFIED</Badge>
+                <Badge variant="secondary">FOLLOW-UP</Badge>
+                <Badge variant="default">CLOSED WON</Badge>
+                <Badge variant="outline">CLOSED LOST</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}

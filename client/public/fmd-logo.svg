@@ -1,0 +1,30 @@
+<svg width="300" height="140" xmlns="http://www.w3.org/2000/svg">
+  <!-- FMD Logo Recreation -->
+  <defs>
+    <style>
+      .burgundy { fill: #8B3A3A; }
+      .black { fill: #1A1A1A; }
+      .forest-green { fill: #2D5016; }
+      .text { fill: #1A1A1A; font-family: 'Arial Black', sans-serif; font-weight: 900; }
+    </style>
+  </defs>
+  
+  <!-- F - Burgundy -->
+  <rect class="burgundy" x="0" y="0" width="85" height="95"/>
+  <rect class="burgundy" x="30" y="20" width="50" height="12"/>
+  <rect class="burgundy" x="30" y="48" width="50" height="12"/>
+  
+  <!-- M - Black -->
+  <rect class="black" x="93" y="0" width="101" height="95"/>
+  <rect x="123" y="20" width="15" height="55" fill="white"/>
+  <rect x="153" y="20" width="15" height="55" fill="white"/>
+  
+  <!-- D - Forest Green -->
+  <rect class="forest-green" x="202" y="0" width="98" height="95"/>
+  <rect class="forest-green" x="232" y="20" width="50" height="12"/>
+  <path class="forest-green" d="M 232 20 L 282 20 L 282 75 L 232 75 Z" fill="none" stroke="white" stroke-width="12"/>
+  <rect x="232" y="20" width="38" height="55" fill="white"/>
+  
+  <!-- COMPANIES text -->
+  <text class="text" x="0" y="125" font-size="28">COMPANIES</text>
+</svg>
