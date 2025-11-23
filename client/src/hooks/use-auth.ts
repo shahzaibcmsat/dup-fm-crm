@@ -33,6 +33,12 @@ export const useAuth = create<AuthState>((set: any) => ({
           role: (session.user.user_metadata?.role || 'member') as 'admin' | 'member',
         };
         
+        console.log('👤 User authenticated:', {
+          email: user.email,
+          role: user.role,
+          metadata: session.user.user_metadata
+        });
+        
         set({ user, isAuthenticated: true, isLoading: false });
         
         // Sync with localStorage for compatibility
@@ -40,6 +46,7 @@ export const useAuth = create<AuthState>((set: any) => ({
         localStorage.setItem('userEmail', user.email);
         localStorage.setItem('userId', user.id);
       } else {
+        console.log('❌ No session found');
         set({ user: null, isAuthenticated: false, isLoading: false });
         localStorage.removeItem('userRole');
         localStorage.removeItem('userEmail');
@@ -69,6 +76,12 @@ export const useAuth = create<AuthState>((set: any) => ({
           role: (data.user.user_metadata?.role || 'member') as 'admin' | 'member',
         };
         
+        console.log('✅ Login successful:', {
+          email: user.email,
+          role: user.role,
+          metadata: data.user.user_metadata
+        });
+        
         set({ user, isAuthenticated: true });
         
         // Sync with localStorage
@@ -84,15 +97,23 @@ export const useAuth = create<AuthState>((set: any) => ({
   },
 
   logout: async () => {
+    console.log('🚪 Logging out...');
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+      } else {
+        console.log('✅ Supabase signout successful');
+      }
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Logout exception:', error);
     } finally {
+      console.log('🧹 Clearing auth state and redirecting...');
       set({ user: null, isAuthenticated: false });
       localStorage.removeItem('userRole');
       localStorage.removeItem('userEmail');
       localStorage.removeItem('userId');
+      localStorage.clear(); // Clear all localStorage
       window.location.href = '/login';
     }
   },
