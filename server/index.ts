@@ -188,11 +188,11 @@ function startEmailSyncJob() {
 
   const syncEmails = async () => {
     try {
-      const { fetchNewEmails, getInReplyToHeader, isMicrosoftGraphConfigured } = await import('./outlook');
+      const { fetchNewEmails, getInReplyToHeader, getEmailBody, getHeader, isGmailConfigured } = await import('./gmail');
       const { storage } = await import('./storage');
       const { insertEmailSchema } = await import('@shared/schema');
 
-      if (!isMicrosoftGraphConfigured()) {
+      if (!isGmailConfigured()) {
         return; // Skip if not configured
       }
 
@@ -205,20 +205,27 @@ function startEmailSyncJob() {
       }
 
       for (const email of newEmails) {
-        const fromAddress = email.from?.emailAddress?.address;
+        const fromAddress = getHeader(email, 'From');
+        const subject = getHeader(email, 'Subject');
+        const messageId = email.id;
+        const threadId = email.threadId;
+        
         log(`  📧 Processing email from: ${fromAddress}`);
-        log(`     Subject: ${email.subject || '(No Subject)'}`);
-        log(`     Message ID: ${email.id}`);
-        log(`     Conversation ID: ${email.conversationId || 'none'}`);
-        log(`     Received Time: ${email.receivedDateTime}`);
+        log(`     Subject: ${subject || '(No Subject)'}`);
+        log(`     Message ID: ${messageId}`);
+        log(`     Thread ID: ${threadId || 'none'}`);
         
         if (!fromAddress) {
           log(`     ⚠️ No from address, skipping`);
           continue;
         }
 
+        // Extract email address from "Name <email@example.com>" format
+        const emailMatch = fromAddress.match(/<(.+?)>/) || [null, fromAddress];
+        const cleanFromAddress = emailMatch[1] || fromAddress;
+
         // Check if we already have this message
-        const existing = await storage.getEmailByMessageId(email.id);
+        const existing = await storage.getEmailByMessageId(messageId);
         
         if (existing) {
           log(`     ℹ️ Email already exists in database, skipping`);
@@ -227,37 +234,38 @@ function startEmailSyncJob() {
 
         // Try to find the correct lead by matching conversation thread
         let lead = null;
-        const conversationId = email.conversationId;
         const inReplyToHeader = getInReplyToHeader(email);
         
-        // First, try to match by conversation thread (most accurate)
-        if (conversationId) {
-          log(`     🔍 Looking for existing email with conversation ID: ${conversationId}`);
-          const relatedEmail = await storage.getEmailByConversationId(conversationId);
+        // First, try to match by thread ID (Gmail's conversation threading)
+        if (threadId) {
+          log(`     🔍 Looking for existing email with thread ID: ${threadId}`);
+          const relatedEmail = await storage.getEmailByConversationId(threadId);
           if (relatedEmail) {
-            log(`     ✅ Found related email in conversation, using lead: ${relatedEmail.leadId}`);
+            log(`     ✅ Found related email in thread, using lead: ${relatedEmail.leadId}`);
             lead = await storage.getLead(relatedEmail.leadId);
           }
         }
         
-        // If no match by conversation, try by email address
+        // If no match by thread, try by email address
         if (!lead) {
-          log(`     🔍 No conversation match, looking for lead by email address`);
-          lead = await storage.getLeadByEmail(fromAddress);
+          log(`     🔍 No thread match, looking for lead by email address`);
+          lead = await storage.getLeadByEmail(cleanFromAddress);
         }
         
         if (lead) {
           log(`     ✅ Matched to lead: ${lead.clientName} (${lead.id})`);
           log(`     💾 Saving new email to database...`);
           
+          const emailBody = getEmailBody(email);
+          
           const emailData = insertEmailSchema.parse({
             leadId: lead.id,
-            subject: email.subject || '(No Subject)',
-            body: email.body?.content || '',
+            subject: subject || '(No Subject)',
+            body: emailBody || '',
             direction: 'received',
-            messageId: email.id,
-            conversationId: conversationId || null,
-            fromEmail: fromAddress,
+            messageId: messageId,
+            conversationId: threadId || null,
+            fromEmail: cleanFromAddress,
             toEmail: process.env.EMAIL_FROM_ADDRESS || null,
             inReplyTo: inReplyToHeader,
           });
@@ -267,14 +275,14 @@ function startEmailSyncJob() {
           
           // Update lead status to "Replied" if they responded
           await storage.updateLeadStatus(lead.id, 'Replied');
-          log(`     📨 Saved reply from ${fromAddress} for lead ${lead.clientName}`);
+          log(`     📨 Saved reply from ${cleanFromAddress} for lead ${lead.clientName}`);
           
           // Add notification for this new reply
-          const notification = addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
+          const notification = addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)');
           log(`     🔔 Created notification ${notification.id} for ${lead.clientName}`);
           log(`     🔔 Total notifications in queue: ${recentNotifications.length}`);
         } else {
-          log(`     ⚠️ No matching lead found for email: ${fromAddress}`);
+          log(`     ⚠️ No matching lead found for email: ${cleanFromAddress}`);
         }
       }
 

@@ -6,7 +6,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { insertLeadSchema, insertEmailSchema, insertCompanySchema, insertInventorySchema } from "@shared/schema";
-import { sendEmail, isMicrosoftGraphConfigured, getAuthorizationUrl, exchangeCodeForTokens } from "./outlook";
+import { sendEmail, isGmailConfigured } from "./gmail";
 import { grammarFix, generateAutoReply } from "./groq";
 import { getAllConfig, saveConfigToFile, validateConfig } from "./config-manager";
 
@@ -126,12 +126,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/status", async (req, res) => {
     res.json({
-      emailProvider: 'microsoft',
-      microsoftGraph: isMicrosoftGraphConfigured(),
+      emailProvider: 'gmail',
+      gmailConfigured: isGmailConfigured(),
       environment: {
-        hasClientId: !!process.env.AZURE_CLIENT_ID,
-        hasClientSecret: !!process.env.AZURE_CLIENT_SECRET,
-        tenantId: process.env.AZURE_TENANT_ID || 'common',
+        hasClientId: !!process.env.GMAIL_CLIENT_ID,
+        hasClientSecret: !!process.env.GMAIL_CLIENT_SECRET,
+        hasRefreshToken: !!process.env.GMAIL_REFRESH_TOKEN,
         fromAddress: process.env.EMAIL_FROM_ADDRESS || 'not set'
       }
     });
@@ -343,7 +343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? existingEmails.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())[0]
         : null;
 
-      console.log(`📧 Sending email via Microsoft Graph...`);
+      console.log(`📧 Sending email via Gmail...`);
       
       if (lastEmail) {
         console.log(`🧵 Found existing conversation - replying to thread`);
@@ -358,7 +358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailSubject = `Re: ${baseSubject}`;
       }
 
-      // Send email using Microsoft Graph
+      // Send email using Gmail API
       const result = await sendEmail(
         lead.email, 
         emailSubject, 
@@ -463,7 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync emails from inbox (check for new replies)
   app.post("/api/emails/sync", async (req, res) => {
     try {
-      const { fetchNewEmails, getInReplyToHeader } = await import("./outlook");
+      const { fetchNewEmails, getInReplyToHeader, getEmailBody, getHeader } = await import("./gmail");
       const { addEmailNotification } = await import("./index");
       
       // Get timestamp of last sync (or fetch all recent emails)
@@ -475,22 +475,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let matchedCount = 0;
 
       for (const email of newEmails) {
-        // Check if this email is a reply to one of our sent emails
-        const conversationId = email.conversationId;
-        const fromAddress = email.from?.emailAddress?.address;
+        // Extract email info from Gmail message
+        const fromAddress = getHeader(email, 'From');
+        const subject = getHeader(email, 'Subject');
+        const messageId = email.id;
+        const threadId = email.threadId;
         
         console.log(`  📧 Processing email from: ${fromAddress}`);
-        console.log(`     Subject: ${email.subject || '(No Subject)'}`);
-        console.log(`     Message ID: ${email.id}`);
-        console.log(`     Conversation ID: ${conversationId || 'none'}`);
+        console.log(`     Subject: ${subject || '(No Subject)'}`);
+        console.log(`     Message ID: ${messageId}`);
+        console.log(`     Thread ID: ${threadId || 'none'}`);
         
         if (!fromAddress) {
           console.log(`     No from address, skipping`);
           continue;
         }
 
+        // Extract email address from "Name <email@example.com>" format
+        const emailMatch = fromAddress.match(/<(.+?)>/) || [null, fromAddress];
+        const cleanFromAddress = emailMatch[1] || fromAddress;
+
         // Check if we already have this message
-        const existing = await storage.getEmailByMessageId(email.id);
+        const existing = await storage.getEmailByMessageId(messageId);
         
         if (existing) {
           console.log(`     Email already exists in database, skipping`);
@@ -501,21 +507,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let lead = null;
         const inReplyToHeader = getInReplyToHeader(email);
         
-        // First, try to match by conversation thread (most accurate)
-        if (conversationId) {
-          console.log(`     Looking for existing email with conversation ID: ${conversationId}`);
-          const relatedEmail = await storage.getEmailByConversationId(conversationId);
+        // First, try to match by thread ID
+        if (threadId) {
+          console.log(`     Looking for existing email with thread ID: ${threadId}`);
+          const relatedEmail = await storage.getEmailByConversationId(threadId);
           if (relatedEmail) {
-            console.log(`     Found related email in conversation, using lead: ${relatedEmail.leadId}`);
+            console.log(`     Found related email in thread, using lead: ${relatedEmail.leadId}`);
             lead = await storage.getLead(relatedEmail.leadId);
             matchedCount++;
           }
         }
         
-        // If no match by conversation, try by email address
+        // If no match by thread, try by email address
         if (!lead) {
-          console.log(`     No conversation match, looking for lead by email address`);
-          lead = await storage.getLeadByEmail(fromAddress);
+          console.log(`     No thread match, looking for lead by email address`);
+          lead = await storage.getLeadByEmail(cleanFromAddress);
           if (lead) {
             matchedCount++;
           }
@@ -525,14 +531,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`     Matched to lead: ${lead.clientName} (${lead.id})`);
           console.log(`     Saving new email to database...`);
           
+          const emailBody = getEmailBody(email);
+          
           const emailData = insertEmailSchema.parse({
             leadId: lead.id,
-            subject: email.subject || '(No Subject)',
-            body: email.body?.content || '',
+            subject: subject || '(No Subject)',
+            body: emailBody || '',
             direction: 'received',
-            messageId: email.id,
-            conversationId: conversationId || null,
-            fromEmail: fromAddress,
+            messageId: messageId,
+            conversationId: threadId || null,
+            fromEmail: cleanFromAddress,
             toEmail: process.env.EMAIL_FROM_ADDRESS || null,
             inReplyTo: inReplyToHeader,
           });
