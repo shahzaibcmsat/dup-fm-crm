@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import { debug, info, error as logError } from './vite';
 
 // Gmail OAuth configuration
 interface GmailConfig {

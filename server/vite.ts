@@ -8,6 +8,8 @@ import { type Server } from "http";
 // so only load them dynamically inside setupVite() when in development.
 // This keeps production from trying to resolve 'vite' at runtime.
 
+const isDevelopment = process.env.NODE_ENV === "development";
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -17,6 +19,23 @@ export function log(message: string, source = "express") {
   });
 
   console.log(`${formattedTime} [${source}] ${message}`);
+}
+
+// Debug logging - only in development
+export function debug(message: string, data?: any) {
+  if (isDevelopment) {
+    console.log(`[DEBUG] ${message}`, data || '');
+  }
+}
+
+// Info logging - always visible
+export function info(message: string, data?: any) {
+  console.log(`[INFO] ${message}`, data || '');
+}
+
+// Error logging - always visible
+export function error(message: string, data?: any) {
+  console.error(`[ERROR] ${message}`, data || '');
 }
 
 export async function setupVite(app: Express, server: Server) {

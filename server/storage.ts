@@ -1,6 +1,7 @@
 import { leads, emails, companies, inventory, memberPermissions, notifications, type Lead, type InsertLead, type Email, type InsertEmail, type Company, type InsertCompany, type Inventory, type InsertInventory, type MemberPermission, type InsertMemberPermission, type Notification, type InsertNotification } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, inArray } from "drizzle-orm";
+import { debug, info, error as logError } from './vite';
 
 export type LeadWithCompany = Lead & { company?: Company | null };
 

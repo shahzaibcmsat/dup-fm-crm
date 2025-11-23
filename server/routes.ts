@@ -9,6 +9,7 @@ import { insertLeadSchema, insertEmailSchema, insertCompanySchema, insertInvento
 import { sendEmail, isGmailConfigured } from "./gmail";
 import { grammarFix, generateAutoReply } from "./groq";
 import { getAllConfig, saveConfigToFile, validateConfig } from "./config-manager";
+import { debug, info, error as logError } from './vite';
 
 const upload = multer({ storage: multer.memoryStorage() });
 

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import rateLimit from 'express-rate-limit';
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, serveStatic, log, debug, info, error as logError } from "./vite";
 import { initializeConfig } from "./config-manager";
 
 const app = express();
