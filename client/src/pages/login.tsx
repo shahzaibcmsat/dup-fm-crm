@@ -5,54 +5,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-        credentials: "include", // Important for session cookies
-      });
+      const { error } = await login(email, password);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Store user info in localStorage for UI purposes
-        localStorage.setItem("userRole", data.user.role);
-        localStorage.setItem("username", data.user.username);
-        localStorage.setItem("userId", data.user.id);
-
-        toast({
-          title: `Welcome ${data.user.username}!`,
-          description: "You have successfully logged in.",
-        });
-        
-        setLocation("/");
-      } else {
+      if (error) {
         toast({
           title: "Login Failed",
-          description: data.message || "Invalid username or password.",
+          description: error,
           variant: "destructive",
         });
+      } else {
+        toast({
+          title: "Welcome!",
+          description: "You have successfully logged in.",
+        });
+        setLocation("/");
       }
     } catch (error) {
       console.error("Login error:", error);
       toast({
         title: "Error",
-        description: "Failed to connect to server. Please try again.",
+        description: "Failed to connect. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -75,13 +62,13 @@ export default function Login() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="text"
-                placeholder="Enter username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 autoFocus
                 className="h-12 text-base"

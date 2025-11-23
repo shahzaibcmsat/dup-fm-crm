@@ -1,8 +1,9 @@
 import { create } from 'zustand';
+import { supabase } from '@/lib/supabase';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
   id: string;
-  username: string;
   email: string;
   role: 'admin' | 'user';
 }
@@ -13,7 +14,7 @@ interface AuthState {
   isLoading: boolean;
   checkAuth: () => Promise<void>;
   logout: () => Promise<void>;
-  setUser: (user: User | null) => void;
+  login: (email: string, password: string) => Promise<{ error?: string }>;
 }
 
 export const useAuth = create<AuthState>((set: any) => ({
@@ -23,28 +24,25 @@ export const useAuth = create<AuthState>((set: any) => ({
 
   checkAuth: async () => {
     try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.authenticated && data.user) {
-          set({ user: data.user, isAuthenticated: true, isLoading: false });
-          // Sync with localStorage
-          localStorage.setItem('userRole', data.user.role);
-          localStorage.setItem('username', data.user.username);
-          localStorage.setItem('userId', data.user.id);
-        } else {
-          set({ user: null, isAuthenticated: false, isLoading: false });
-          localStorage.removeItem('userRole');
-          localStorage.removeItem('username');
-          localStorage.removeItem('userId');
-        }
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          role: (session.user.user_metadata?.role || 'user') as 'admin' | 'user',
+        };
+        
+        set({ user, isAuthenticated: true, isLoading: false });
+        
+        // Sync with localStorage for compatibility
+        localStorage.setItem('userRole', user.role);
+        localStorage.setItem('userEmail', user.email);
+        localStorage.setItem('userId', user.id);
       } else {
         set({ user: null, isAuthenticated: false, isLoading: false });
         localStorage.removeItem('userRole');
-        localStorage.removeItem('username');
+        localStorage.removeItem('userEmail');
         localStorage.removeItem('userId');
       }
     } catch (error) {
@@ -53,24 +51,49 @@ export const useAuth = create<AuthState>((set: any) => ({
     }
   },
 
+  login: async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      if (data.user) {
+        const user: User = {
+          id: data.user.id,
+          email: data.user.email || '',
+          role: (data.user.user_metadata?.role || 'user') as 'admin' | 'user',
+        };
+        
+        set({ user, isAuthenticated: true });
+        
+        // Sync with localStorage
+        localStorage.setItem('userRole', user.role);
+        localStorage.setItem('userEmail', user.email);
+        localStorage.setItem('userId', user.id);
+      }
+
+      return {};
+    } catch (error: any) {
+      return { error: error.message || 'Login failed' };
+    }
+  },
+
   logout: async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await supabase.auth.signOut();
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
       set({ user: null, isAuthenticated: false });
       localStorage.removeItem('userRole');
-      localStorage.removeItem('username');
+      localStorage.removeItem('userEmail');
       localStorage.removeItem('userId');
       window.location.href = '/login';
     }
-  },
-
-  setUser: (user: User | null) => {
-    set({ user, isAuthenticated: !!user });
   },
 }));
