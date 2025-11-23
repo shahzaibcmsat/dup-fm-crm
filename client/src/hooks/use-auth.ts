@@ -117,6 +117,26 @@ export const useAuth = create<AuthState>((set: any) => ({
         localStorage.setItem('userRole', user.role);
         localStorage.setItem('userEmail', user.email);
         localStorage.setItem('userId', user.id);
+
+        // Load permissions for members immediately after login
+        if (user.role === 'member') {
+          try {
+            const response = await fetch(`/api/permissions/${user.id}`);
+            if (response.ok) {
+              const permissions = await response.json();
+              console.log('✅ Permissions loaded on login:', permissions);
+              set({
+                user: {
+                  ...user,
+                  permissions,
+                },
+                isAuthenticated: true,
+              });
+            }
+          } catch (error) {
+            console.error('Failed to load permissions on login:', error);
+          }
+        }
       }
 
       return {};
