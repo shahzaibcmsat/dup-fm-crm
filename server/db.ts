@@ -13,5 +13,12 @@ if (!connectionString) {
   );
 }
 
-export const pool = new Pool({ connectionString });
+// Configure connection pool for optimal performance
+export const pool = new Pool({ 
+  connectionString,
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30s
+  connectionTimeoutMillis: 10000, // Timeout for new connections after 10s
+});
+
 export const db = drizzle({ client: pool, schema });
