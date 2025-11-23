@@ -1,16 +1,5 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 // Store runtime configuration
 let runtimeConfig: Record<string, string> = {};
-
-// Path to .env file
-const ENV_FILE_PATH = path.join(__dirname, '..', '.env');
 
 /**
  * Initialize runtime config from environment variables
@@ -89,82 +78,29 @@ export function updateConfig(updates: Record<string, string>) {
 }
 
 /**
- * Save configuration to .env file (development) or runtime (production)
+ * Save configuration to runtime only (no file writing)
+ * PRODUCTION-SAFE: Only updates process.env in memory
+ * Note: Changes will be lost on server restart - use hosting platform env vars for persistence
  */
 export function saveConfigToFile(config: Record<string, string>) {
   try {
-    // IMPORTANT: In production (Node.js hosting), we can only update runtime memory
-    // The actual environment variables must be set in the hosting platform dashboard
-    // This function updates both runtime config and .env file (if it exists in development)
-    
-    // Always update runtime config and process.env for immediate effect
+    // Update runtime config and process.env for immediate effect
     updateConfig(config);
     
-    // Only try to write to .env file if we're in development and file exists/is writable
     const isProduction = process.env.NODE_ENV === 'production';
-    const canWriteEnvFile = !isProduction && fs.existsSync(path.dirname(ENV_FILE_PATH));
     
-    if (canWriteEnvFile) {
-      console.log('📝 Updating .env file (development mode)');
-      
-      // Read existing .env file
-      let envContent = '';
-      if (fs.existsSync(ENV_FILE_PATH)) {
-        envContent = fs.readFileSync(ENV_FILE_PATH, 'utf-8');
-      }
-      
-      // Parse existing content into lines
-      const lines = envContent.split('\n');
-      const updatedLines: string[] = [];
-      const updatedKeys = new Set<string>();
-      
-      // Update existing keys or keep comments/empty lines
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        
-        // Keep comments and empty lines
-        if (trimmedLine.startsWith('#') || trimmedLine === '') {
-          updatedLines.push(line);
-          continue;
-        }
-        
-        // Parse key=value
-        const equalIndex = line.indexOf('=');
-        if (equalIndex > 0) {
-          const key = line.substring(0, equalIndex).trim();
-          
-          if (key in config) {
-            updatedLines.push(`${key}=${config[key]}`);
-            updatedKeys.add(key);
-          } else {
-            updatedLines.push(line);
-          }
-        } else {
-          updatedLines.push(line);
-        }
-      }
-      
-      // Add new keys that weren't in the original file
-      for (const [key, value] of Object.entries(config)) {
-        if (!updatedKeys.has(key)) {
-          updatedLines.push(`${key}=${value}`);
-        }
-      }
-      
-      // Write back to file
-      fs.writeFileSync(ENV_FILE_PATH, updatedLines.join('\n'), 'utf-8');
-      console.log('✅ .env file updated successfully');
-    } else {
-      console.log('⚠️ Running in production mode - runtime config updated only');
+    if (isProduction) {
+      console.log('⚠️ Production mode: Configuration updated in memory only');
       console.log('💡 To persist changes, update environment variables in your hosting platform dashboard');
+    } else {
+      console.log('ℹ️ Development mode: Configuration updated in memory');
+      console.log('💡 To persist changes across restarts, update your .env file manually');
     }
     
     return true;
   } catch (error) {
-    console.error('❌ Error saving config:', error);
-    // Don't fail if .env file can't be written (production scenario)
-    // Runtime config is still updated
-    return true; // Return true because runtime config was updated
+    console.error('❌ Error updating runtime config:', error);
+    return false;
   }
 }
 

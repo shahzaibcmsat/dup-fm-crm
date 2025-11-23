@@ -107,12 +107,46 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate required fields
+    if (!clientName.trim()) {
+      toast({
+        title: "Validation error",
+        description: "Client name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      toast({
+        title: "Validation error",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate phone if provided (allow digits, spaces, dashes, parentheses, plus)
+    if (phone && phone.trim()) {
+      const phoneRegex = /^[\d\s\-\(\)\+]+$/;
+      if (!phoneRegex.test(phone.trim()) || phone.trim().replace(/\D/g, '').length < 10) {
+        toast({
+          title: "Validation error",
+          description: "Please enter a valid phone number (at least 10 digits)",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const data = {
-      clientName,
-      email,
-      phone: phone || undefined,
-      subject: subject || undefined,
-      leadDetails: leadDetails || undefined,
+      clientName: clientName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone?.trim() || undefined,
+      subject: subject?.trim() || undefined,
+      leadDetails: leadDetails?.trim() || undefined,
       companyId: companyId || null,
       status: lead?.status || "New",
     };
