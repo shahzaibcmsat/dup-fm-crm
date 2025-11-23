@@ -20,14 +20,8 @@ function getMicrosoftGraphConfig(): MicrosoftGraphConfig | null {
   const tenantId = process.env.AZURE_TENANT_ID || 'common';
   const redirectUri = process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/callback';
 
-  console.log('📋 Microsoft Graph Configuration Check:');
-  console.log('  AZURE_CLIENT_ID:', clientId ? '✅ Set' : '❌ Not set');
-  console.log('  AZURE_CLIENT_SECRET:', clientSecret ? '✅ Set' : '❌ Not set');
-  console.log('  AZURE_TENANT_ID:', tenantId);
-  console.log('  EMAIL_FROM_ADDRESS:', process.env.EMAIL_FROM_ADDRESS || '❌ Not set');
-
+  // Silently check if configured (no console output)
   if (!clientId || !clientSecret) {
-    console.log('❌ Microsoft Graph not configured - missing credentials');
     return null;
   }
 
