@@ -58,6 +58,15 @@ export function useEmailNotifications() {
         const data = await response.json();
         console.log(`📡 CLIENT: Received ${data.notifications?.length || 0} notifications from backend`);
 
+        // If backend has NO notifications, clear localStorage
+        if (!data.notifications || data.notifications.length === 0) {
+          const currentState = notificationStore.getState();
+          if (currentState.unreadTotal > 0) {
+            console.log('🧹 CLIENT: Backend has no notifications, clearing localStorage counts');
+            notificationStore.reset();
+          }
+        }
+
         if (data.notifications && data.notifications.length > 0) {
           let newCount = 0;
           
