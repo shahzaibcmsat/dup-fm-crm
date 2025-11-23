@@ -14,10 +14,10 @@ import { useAuth } from "@/hooks/use-auth";
 
 interface ConfigData {
   DATABASE_URL: string;
-  AZURE_CLIENT_ID: string;
-  AZURE_CLIENT_SECRET: string;
-  AZURE_TENANT_ID: string;
-  AZURE_REDIRECT_URI: string;
+  GMAIL_CLIENT_ID: string;
+  GMAIL_CLIENT_SECRET: string;
+  GMAIL_REFRESH_TOKEN: string;
+  GMAIL_REDIRECT_URI: string;
   EMAIL_FROM_ADDRESS: string;
   GROQ_API_KEY: string;
   GROQ_MODEL: string;
@@ -29,10 +29,10 @@ export default function Settings() {
   const { user } = useAuth();
   const [config, setConfig] = useState<ConfigData>({
     DATABASE_URL: '',
-    AZURE_CLIENT_ID: '',
-    AZURE_CLIENT_SECRET: '',
-    AZURE_TENANT_ID: '',
-    AZURE_REDIRECT_URI: '',
+    GMAIL_CLIENT_ID: '',
+    GMAIL_CLIENT_SECRET: '',
+    GMAIL_REFRESH_TOKEN: '',
+    GMAIL_REDIRECT_URI: '',
     EMAIL_FROM_ADDRESS: '',
     GROQ_API_KEY: '',
     GROQ_MODEL: '',
@@ -240,23 +240,29 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Microsoft Azure / Outlook Configuration */}
+          {/* Gmail Configuration */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="w-5 h-5" />
-                Microsoft Outlook Configuration
+                Gmail Configuration
               </CardTitle>
               <CardDescription>
-                Azure AD application credentials for email integration
+                Google Gmail API credentials for email integration
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {renderSecretInput('AZURE_CLIENT_ID', 'Azure Client ID', 'Your Azure App Client ID', <Key className="w-4 h-4" />)}
-              {renderSecretInput('AZURE_CLIENT_SECRET', 'Azure Client Secret', 'Your Azure App Client Secret', <Key className="w-4 h-4" />)}
-              {renderInput('AZURE_TENANT_ID', 'Azure Tenant ID', 'common or your tenant ID')}
-              {renderInput('AZURE_REDIRECT_URI', 'Redirect URI', 'http://localhost:5000/api/auth/callback')}
-              {renderInput('EMAIL_FROM_ADDRESS', 'From Email Address', 'your-email@domain.com', <Mail className="w-4 h-4" />)}
+              {renderSecretInput('GMAIL_CLIENT_ID', 'Gmail Client ID', 'Your Google App Client ID', <Key className="w-4 h-4" />)}
+              {renderSecretInput('GMAIL_CLIENT_SECRET', 'Gmail Client Secret', 'Your Google App Client Secret', <Key className="w-4 h-4" />)}
+              {renderSecretInput('GMAIL_REFRESH_TOKEN', 'Gmail Refresh Token', 'Your Gmail Refresh Token', <Key className="w-4 h-4" />)}
+              {renderInput('GMAIL_REDIRECT_URI', 'Redirect URI', 'http://localhost:5000/api/auth/callback')}
+              {renderInput('EMAIL_FROM_ADDRESS', 'From Email Address', 'your-email@gmail.com', <Mail className="w-4 h-4" />)}
+              <p className="text-xs text-muted-foreground">
+                Get your credentials from{' '}
+                <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                  Google Cloud Console
+                </a>
+              </p>
             </CardContent>
           </Card>
 
@@ -312,14 +318,14 @@ export default function Settings() {
                     <Mail className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">Outlook</p>
+                    <p className="font-medium">Gmail</p>
                     <p className="text-sm text-muted-foreground">
                       {config.EMAIL_FROM_ADDRESS || "Not configured"}
                     </p>
                   </div>
                 </div>
-                <Badge variant={config.AZURE_CLIENT_ID && config.AZURE_CLIENT_SECRET ? "default" : "secondary"} className="gap-1">
-                  {config.AZURE_CLIENT_ID && config.AZURE_CLIENT_SECRET ? (
+                <Badge variant={config.GMAIL_CLIENT_ID && config.GMAIL_CLIENT_SECRET ? "default" : "secondary"} className="gap-1">
+                  {config.GMAIL_CLIENT_ID && config.GMAIL_CLIENT_SECRET ? (
                     <>
                       <CheckCircle2 className="w-3 h-3" />
                       Connected
