@@ -84,46 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // OAuth authentication routes for Microsoft Graph
-  app.get("/api/auth/microsoft", async (req, res) => {
-    try {
-      const authUrl = getAuthorizationUrl();
-      if (!authUrl) {
-        return res.status(500).json({ 
-          message: "Microsoft Graph not configured. Please set AZURE_CLIENT_ID and AZURE_CLIENT_SECRET" 
-        });
-      }
-      res.redirect(authUrl);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.get("/api/auth/callback", async (req, res) => {
-    try {
-      const code = req.query.code as string;
-      if (!code) {
-        return res.status(400).send("No authorization code provided");
-      }
-
-      const tokenResponse = await exchangeCodeForTokens(code);
-      
-      // Store the tokens securely (in production, use database)
-      // For now, just redirect to success page
-      res.send(`
-        <html>
-          <body>
-            <h2>✅ Microsoft Account Connected Successfully!</h2>
-            <p>You can now close this window and return to the application.</p>
-            <script>setTimeout(() => window.close(), 2000);</script>
-          </body>
-        </html>
-      `);
-    } catch (error: any) {
-      res.status(500).send(`Authentication failed: ${error.message}`);
-    }
-  });
-
+  // Gmail configuration status endpoint
   app.get("/api/auth/status", async (req, res) => {
     res.json({
       emailProvider: 'gmail',
@@ -140,26 +101,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Debug endpoint to test email configuration
   app.get("/api/debug/email-config", async (req, res) => {
     res.json({
-      provider: 'microsoft',
-      microsoft: {
-        configured: isMicrosoftGraphConfigured(),
-        clientId: process.env.AZURE_CLIENT_ID ? 'Set (hidden)' : 'Not set',
-        clientSecret: process.env.AZURE_CLIENT_SECRET ? 'Set (hidden)' : 'Not set',
-        tenantId: process.env.AZURE_TENANT_ID || 'common',
+      provider: 'gmail',
+      gmail: {
+        configured: isGmailConfigured(),
+        clientId: process.env.GMAIL_CLIENT_ID ? 'Set (hidden)' : 'Not set',
+        clientSecret: process.env.GMAIL_CLIENT_SECRET ? 'Set (hidden)' : 'Not set',
+        refreshToken: process.env.GMAIL_REFRESH_TOKEN ? 'Set (hidden)' : 'Not set',
         fromAddress: process.env.EMAIL_FROM_ADDRESS || 'Not set',
-        redirectUri: process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/callback'
+        redirectUri: process.env.GMAIL_REDIRECT_URI || 'http://localhost:5000/api/auth/callback'
       }
     });
   });
 
-  // Test if the mailbox exists and is accessible
-  app.get("/api/debug/test-mailbox", async (req, res) => {
+  // Test Gmail connection
+  app.get("/api/debug/test-gmail", async (req, res) => {
     try {
-      const { getGraphClient } = await import("./outlook");
-      const client = await getGraphClient();
+      const { isGmailConfigured } = await import("./gmail");
       
-      if (!client) {
-        return res.json({ success: false, error: "Microsoft Graph not configured" });
+      if (!isGmailConfigured()) {
+        return res.json({ 
+          success: false, 
+          error: "Gmail not configured. Please set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN" 
+        });
       }
 
       const fromAddress = process.env.EMAIL_FROM_ADDRESS;
@@ -167,17 +130,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: false, error: "EMAIL_FROM_ADDRESS not set" });
       }
 
-      // Try to get the user's mailbox info
-      const user = await client.api(`/users/${fromAddress}`).get();
-      
       res.json({ 
         success: true, 
-        message: "Mailbox exists and is accessible",
-        user: {
-          displayName: user.displayName,
-          mail: user.mail,
-          userPrincipalName: user.userPrincipalName
-        }
+        message: "Gmail is configured and ready",
+        fromAddress
       });
     } catch (error: any) {
       res.json({ 
