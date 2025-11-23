@@ -1,4 +1,4 @@
-import { leads, emails, companies, inventory, memberPermissions, type Lead, type InsertLead, type Email, type InsertEmail, type Company, type InsertCompany, type Inventory, type InsertInventory, type MemberPermission, type InsertMemberPermission } from "@shared/schema";
+import { leads, emails, companies, inventory, memberPermissions, notifications, type Lead, type InsertLead, type Email, type InsertEmail, type Company, type InsertCompany, type Inventory, type InsertInventory, type MemberPermission, type InsertMemberPermission, type Notification, type InsertNotification } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, inArray } from "drizzle-orm";
 
@@ -37,6 +37,11 @@ export interface IStorage {
   getAllMemberPermissions(): Promise<MemberPermission[]>;
   upsertMemberPermissions(permissions: InsertMemberPermission): Promise<MemberPermission>;
   deleteMemberPermissions(userId: string): Promise<boolean>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getRecentNotifications(since?: string): Promise<Notification[]>;
+  dismissNotification(id: string): Promise<boolean>;
+  dismissNotificationsByLead(leadId: string): Promise<number>;
+  cleanupOldNotifications(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -317,6 +322,60 @@ export class DatabaseStorage implements IStorage {
       .where(eq(memberPermissions.userId, userId))
       .returning();
     return result.length > 0;
+  }
+
+  // Notification methods
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [created] = await db
+      .insert(notifications)
+      .values(notification)
+      .returning();
+    return created;
+  }
+
+  async getRecentNotifications(since?: string): Promise<Notification[]> {
+    const query = db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.isDismissed, false))
+      .orderBy(desc(notifications.createdAt))
+      .limit(50);
+
+    return await query;
+  }
+
+  async dismissNotification(id: string): Promise<boolean> {
+    const result = await db
+      .update(notifications)
+      .set({
+        isDismissed: true,
+        dismissedAt: new Date(),
+      })
+      .where(eq(notifications.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async dismissNotificationsByLead(leadId: string): Promise<number> {
+    const result = await db
+      .update(notifications)
+      .set({
+        isDismissed: true,
+        dismissedAt: new Date(),
+      })
+      .where(eq(notifications.leadId, leadId))
+      .returning();
+    return result.length;
+  }
+
+  async cleanupOldNotifications(): Promise<number> {
+    // Delete dismissed notifications older than 7 days
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const result = await db
+      .delete(notifications)
+      .where(eq(notifications.isDismissed, true))
+      .returning();
+    return result.length;
   }
 }
 

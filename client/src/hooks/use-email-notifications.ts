@@ -44,6 +44,8 @@ function saveShownNotifications(shown: Set<string>) {
 export function useEmailNotifications() {
   const { toast } = useToast();
   const shownNotificationsRef = useRef<Set<string>>(loadShownNotifications());
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<number>(5000); // Start with 5 seconds
 
   useEffect(() => {
     const checkForNotifications = async () => {
@@ -65,6 +67,16 @@ export function useEmailNotifications() {
             console.log('🧹 CLIENT: Backend has no notifications, clearing localStorage counts');
             notificationStore.reset();
           }
+          
+          // Slow down polling when there are no notifications (exponential backoff)
+          if (pollIntervalRef.current < 30000) { // Max 30 seconds
+            pollIntervalRef.current = Math.min(pollIntervalRef.current * 1.5, 30000);
+            console.log(`⏱️ CLIENT: No notifications, slowing poll to ${pollIntervalRef.current / 1000}s`);
+            scheduleNextCheck();
+          }
+        } else {
+          // Speed up polling when there are notifications
+          pollIntervalRef.current = 5000;
         }
 
         if (data.notifications && data.notifications.length > 0) {
@@ -117,16 +129,26 @@ export function useEmailNotifications() {
       }
     };
 
-    // Check immediately on mount
-    console.log('🚀 CLIENT: Starting notification polling system');
-    checkForNotifications();
+    const scheduleNextCheck = () => {
+      if (intervalRef.current) {
+        clearTimeout(intervalRef.current);
+      }
+      intervalRef.current = setTimeout(() => {
+        checkForNotifications();
+        scheduleNextCheck();
+      }, pollIntervalRef.current);
+    };
 
-    // Then check every 5 seconds
-    const interval = setInterval(checkForNotifications, 5000);
+    // Check immediately on mount
+    console.log('🚀 CLIENT: Starting adaptive notification polling system');
+    checkForNotifications();
+    scheduleNextCheck();
 
     return () => {
       console.log('🛑 CLIENT: Stopping notification polling');
-      clearInterval(interval);
+      if (intervalRef.current) {
+        clearTimeout(intervalRef.current);
+      }
     };
   }, [toast]);
 }

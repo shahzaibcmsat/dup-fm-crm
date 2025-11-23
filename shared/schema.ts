@@ -108,6 +108,18 @@ export const insertInventorySchema = z.object({
   notes: z.string().nullable(),
 });
 
+// Notifications table for email reply alerts
+export const notifications = pgTable("notifications", {
+  id: text("id").primaryKey(),
+  leadId: varchar("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+  leadName: text("lead_name").notNull(),
+  fromEmail: text("from_email").notNull(),
+  subject: text("subject").notNull(),
+  isDismissed: boolean("is_dismissed").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  dismissedAt: timestamp("dismissed_at"),
+});
+
 // Member permissions table for granular access control
 export const memberPermissions = pgTable("member_permissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -129,6 +141,8 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications);
+
 export const insertMemberPermissionSchema = createInsertSchema(memberPermissions).omit({
   id: true,
   createdAt: true,
@@ -146,5 +160,7 @@ export type InsertEmail = z.infer<typeof insertEmailSchema>;
 export type Email = typeof emails.$inferSelect;
 export type InsertInventory = z.infer<typeof insertInventorySchema>;
 export type Inventory = typeof inventory.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
 export type InsertMemberPermission = z.infer<typeof insertMemberPermissionSchema>;
 export type MemberPermission = typeof memberPermissions.$inferSelect;

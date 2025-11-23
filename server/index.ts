@@ -91,100 +91,81 @@ app.use((req, res, next) => {
   startEmailSyncJob();
 })();
 
-// Store recent notifications for client polling
-const recentNotifications: Array<{ id: string; leadId: string; leadName: string; fromEmail: string; subject: string; timestamp: string }> = [];
-const dismissedNotifications = new Set<string>(); // Track dismissed notification IDs only
-
-export function addEmailNotification(leadId: string, leadName: string, fromEmail: string, subject: string) {
-  const notification = {
+// Notification functions using database
+export async function addEmailNotification(leadId: string, leadName: string, fromEmail: string, subject: string) {
+  const { storage } = await import('./storage');
+  
+  const notificationData = {
     id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     leadId,
     leadName,
     fromEmail,
     subject,
-    timestamp: new Date().toISOString()
+    isDismissed: false,
+    createdAt: new Date(),
+    dismissedAt: null,
   };
-  recentNotifications.push(notification);
   
-  // Keep only last 50 notifications
-  if (recentNotifications.length > 50) {
-    const removed = recentNotifications.shift();
-    if (removed) {
-      dismissedNotifications.delete(removed.id); // Clean up dismissed tracking
-    }
-  }
+  const notification = await storage.createNotification(notificationData);
   
   console.log(`🔔 BACKEND: Created notification ${notification.id} for lead ${leadName} (${leadId})`);
-  console.log(`   Total notifications in queue: ${recentNotifications.length}`);
-  console.log(`   Dismissed notifications: ${dismissedNotifications.size}`);
+  console.log(`   Total notifications in queue: ${await storage.getRecentNotifications().then(n => n.length)}`);
+  console.log(`   Dismissed notifications: 0`);
   
   return notification;
 }
 
-export function getRecentNotifications(since?: string) {
-  // Filter out only dismissed notifications
-  let notifications = recentNotifications.filter(n => 
-    !dismissedNotifications.has(n.id)
-  );
+export async function getRecentNotifications(since?: string) {
+  const { storage } = await import('./storage');
   
-  console.log(`📊 BACKEND: Getting notifications - Total: ${recentNotifications.length}, After filtering dismissed: ${notifications.length}`);
+  const notifications = await storage.getRecentNotifications(since);
+  
+  console.log(`📊 BACKEND: Getting notifications - Total: ${notifications.length}, After filtering dismissed: ${notifications.length}`);
   
   // Keep only the latest notification per lead (to avoid showing old notifications)
   const latestByLead = new Map<string, typeof notifications[0]>();
   for (const n of notifications) {
     const existing = latestByLead.get(n.leadId);
-    if (!existing || new Date(n.timestamp) > new Date(existing.timestamp)) {
+    if (!existing || new Date(n.createdAt) > new Date(existing.createdAt)) {
       latestByLead.set(n.leadId, n);
     }
   }
 
   // Get array of latest notifications per lead
-  let result = Array.from(latestByLead.values());
+  const result = Array.from(latestByLead.values());
 
-  // If a since param was provided, filter by timestamp AFTER grouping
-  if (since) {
-    const sinceDate = new Date(since);
-    result = result.filter(n => new Date(n.timestamp) > sinceDate);
-    console.log(`   Filtered by since ${since}: ${result.length} notifications`);
-  }
+  console.log(`   Notification IDs: ${result.map(n => n.id).join(', ')}`);
 
   // Return sorted newest-first
   return result.sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }
 
-export function dismissNotification(notificationId: string) {
-  dismissedNotifications.add(notificationId);
+export async function dismissNotification(notificationId: string) {
+  const { storage } = await import('./storage');
+  await storage.dismissNotification(notificationId);
   console.log(`🔕 BACKEND: Dismissed notification: ${notificationId}`);
 }
 
-export function dismissNotificationsForLead(leadId: string) {
-  // Mark all existing notifications for this lead as dismissed
-  const dismissed = recentNotifications
-    .filter(n => n.leadId === leadId)
-    .map(n => {
-      dismissedNotifications.add(n.id);
-      return n.id;
-    });
-  
-  console.log(`🔕 BACKEND: Dismissed ${dismissed.length} notifications for lead: ${leadId}`);
-  console.log(`   Notification IDs: ${dismissed.join(', ')}`);
+export async function dismissNotificationsForLead(leadId: string) {
+  const { storage } = await import('./storage');
+  const count = await storage.dismissNotificationsByLead(leadId);
+  console.log(`🔕 BACKEND: Dismissed ${count} notifications for lead: ${leadId}`);
 }
 
-export function clearAllNotifications() {
-  // Clear all notifications and dismissed tracking
-  recentNotifications.length = 0;
-  dismissedNotifications.clear();
-  log('🧹 All notifications cleared');
+export async function clearAllNotifications() {
+  const { storage } = await import('./storage');
+  const count = await storage.cleanupOldNotifications();
+  log(`🧹 Cleaned up ${count} old dismissed notifications`);
 }
 
 // Background job to sync emails every 30 seconds for faster notifications
 function startEmailSyncJob() {
   const SYNC_INTERVAL = 30 * 1000; // 30 seconds (faster sync for quicker notifications)
-  let lastSyncTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // Start from 24h ago
+  let lastSyncTime = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(); // Start from 48h ago (when server is down)
 
-  log('📧 Email sync job started (checking every 30 seconds)');
+  log('📧 Email sync job started (checking every 30 seconds, 48h lookback)');
 
   const syncEmails = async () => {
     try {
@@ -278,9 +259,10 @@ function startEmailSyncJob() {
           log(`     📨 Saved reply from ${cleanFromAddress} for lead ${lead.clientName}`);
           
           // Add notification for this new reply
-          const notification = addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)');
+          const notification = await addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)');
           log(`     🔔 Created notification ${notification.id} for ${lead.clientName}`);
-          log(`     🔔 Total notifications in queue: ${recentNotifications.length}`);
+          const notificationCount = await storage.getRecentNotifications().then(n => n.length);
+          log(`     🔔 Total notifications in queue: ${notificationCount}`);
         } else {
           log(`     ⚠️ No matching lead found for email: ${cleanFromAddress}`);
         }

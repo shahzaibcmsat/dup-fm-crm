@@ -367,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { getRecentNotifications } = await import("./index");
       const since = req.query.since as string | undefined;
-      const notifications = getRecentNotifications(since);
+      const notifications = await getRecentNotifications(since);
       console.log(`📡 Notification request - since: ${since || 'all'}, returning: ${notifications.length} notifications`);
       if (notifications.length > 0) {
         console.log(`   Notification IDs: ${notifications.map(n => n.id).join(', ')}`);
@@ -385,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { dismissNotificationsForLead } = await import("./index");
       const { leadId } = req.params;
       console.log(`🔕 Dismissing notifications for lead: ${leadId}`);
-      dismissNotificationsForLead(leadId);
+      await dismissNotificationsForLead(leadId);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -397,7 +397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { dismissNotification } = await import("./index");
       const { notificationId } = req.params;
-      dismissNotification(notificationId);
+      await dismissNotification(notificationId);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -508,7 +508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateLeadStatus(lead.id, "Replied");
           
           // Add notification for this new reply
-          const notification = addEmailNotification(lead.id, lead.clientName, fromAddress, email.subject || '(No Subject)');
+          const notification = await addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)');
           console.log(`     Created notification ${notification.id} for ${lead.clientName}`);
         } else {
           console.log(`     No matching lead found for email: ${fromAddress}`);
