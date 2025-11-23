@@ -76,6 +76,11 @@ export function updateConfig(updates: Record<string, string>) {
   // Update runtime config
   for (const [key, value] of Object.entries(updates)) {
     if (key in runtimeConfig) {
+      // Skip masked values - don't overwrite with masked data
+      if (value && value.includes('*')) {
+        console.log(`⏭️  Skipping masked value for ${key}`);
+        continue;
+      }
       runtimeConfig[key] = value;
       // Also update process.env for immediate effect
       process.env[key] = value;
@@ -179,14 +184,21 @@ function maskValue(value: string): string {
 export function validateConfig(config: Record<string, string>): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
-  // Validate DATABASE_URL format
-  if (config.DATABASE_URL && !config.DATABASE_URL.startsWith('postgres://') && !config.DATABASE_URL.startsWith('postgresql://')) {
-    errors.push('DATABASE_URL must be a valid PostgreSQL connection string');
+  // Helper function to check if a value is masked (contains asterisks)
+  const isMaskedValue = (value: string) => value && value.includes('*');
+  
+  // Validate DATABASE_URL format (skip if masked)
+  if (config.DATABASE_URL && !isMaskedValue(config.DATABASE_URL)) {
+    if (!config.DATABASE_URL.startsWith('postgres://') && !config.DATABASE_URL.startsWith('postgresql://')) {
+      errors.push('DATABASE_URL must be a valid PostgreSQL connection string');
+    }
   }
   
-  // Validate email format
-  if (config.EMAIL_FROM_ADDRESS && !isValidEmail(config.EMAIL_FROM_ADDRESS)) {
-    errors.push('EMAIL_FROM_ADDRESS must be a valid email address');
+  // Validate email format (skip if masked)
+  if (config.EMAIL_FROM_ADDRESS && !isMaskedValue(config.EMAIL_FROM_ADDRESS)) {
+    if (!isValidEmail(config.EMAIL_FROM_ADDRESS)) {
+      errors.push('EMAIL_FROM_ADDRESS must be a valid email address');
+    }
   }
   
   // Validate PORT is a number
@@ -194,9 +206,11 @@ export function validateConfig(config: Record<string, string>): { valid: boolean
     errors.push('PORT must be a number');
   }
   
-  // Validate GROQ_API_KEY format
-  if (config.GROQ_API_KEY && !config.GROQ_API_KEY.startsWith('gsk_')) {
-    errors.push('GROQ_API_KEY should start with "gsk_"');
+  // Validate GROQ_API_KEY format (skip if masked)
+  if (config.GROQ_API_KEY && !isMaskedValue(config.GROQ_API_KEY)) {
+    if (!config.GROQ_API_KEY.startsWith('gsk_')) {
+      errors.push('GROQ_API_KEY should start with "gsk_"');
+    }
   }
   
   return {

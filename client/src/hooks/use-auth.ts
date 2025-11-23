@@ -2,10 +2,20 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
+interface MemberPermission {
+  id: string;
+  userId: string;
+  companyIds: string[];
+  canSeeInventory: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface User {
   id: string;
   email: string;
   role: 'admin' | 'member';
+  permissions?: MemberPermission;
 }
 
 interface AuthState {
@@ -15,6 +25,7 @@ interface AuthState {
   checkAuth: () => Promise<void>;
   logout: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ error?: string }>;
+  loadPermissions: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>((set: any) => ({
@@ -45,6 +56,24 @@ export const useAuth = create<AuthState>((set: any) => ({
         localStorage.setItem('userRole', user.role);
         localStorage.setItem('userEmail', user.email);
         localStorage.setItem('userId', user.id);
+
+        // Load permissions for members
+        if (user.role === 'member') {
+          try {
+            const response = await fetch(`/api/permissions/${user.id}`);
+            if (response.ok) {
+              const permissions = await response.json();
+              set({
+                user: {
+                  ...user,
+                  permissions,
+                },
+              });
+            }
+          } catch (error) {
+            console.error('Failed to load permissions:', error);
+          }
+        }
       } else {
         console.log('❌ No session found');
         set({ user: null, isAuthenticated: false, isLoading: false });
@@ -115,6 +144,29 @@ export const useAuth = create<AuthState>((set: any) => ({
       localStorage.removeItem('userId');
       localStorage.clear(); // Clear all localStorage
       window.location.href = '/login';
+    }
+  },
+
+  loadPermissions: async () => {
+    const state = useAuth.getState();
+    if (!state.user || state.user.role === 'admin') {
+      // Admins don't need permissions loaded
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/permissions/${state.user.id}`);
+      if (response.ok) {
+        const permissions = await response.json();
+        set({
+          user: {
+            ...state.user,
+            permissions,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load permissions:', error);
     }
   },
 }));

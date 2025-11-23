@@ -1254,6 +1254,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== MEMBER PERMISSIONS API ====================
+  // Get permissions for a specific user
+  app.get("/api/permissions/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const permissions = await storage.getMemberPermissions(userId);
+      res.json(permissions);
+    } catch (error: any) {
+      console.error("Failed to fetch permissions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get all permissions (admin only)
+  app.get("/api/permissions", async (req, res) => {
+    try {
+      const permissions = await storage.getAllMemberPermissions();
+      res.json(permissions);
+    } catch (error: any) {
+      console.error("Failed to fetch all permissions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update or create permissions for a user (admin only)
+  app.put("/api/permissions/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { companyIds, canSeeInventory } = req.body;
+      
+      if (!Array.isArray(companyIds)) {
+        return res.status(400).json({ message: "companyIds must be an array" });
+      }
+      
+      const permissions = await storage.upsertMemberPermissions({
+        userId,
+        companyIds,
+        canSeeInventory: canSeeInventory ?? false
+      });
+      
+      res.json({ success: true, permissions });
+    } catch (error: any) {
+      console.error("Failed to update permissions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Delete permissions for a user (admin only)
+  app.delete("/api/permissions/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const success = await storage.deleteMemberPermissions(userId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Permissions not found" });
+      }
+      
+      res.json({ success: true, message: "Permissions deleted successfully" });
+    } catch (error: any) {
+      console.error("Failed to delete permissions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

@@ -108,6 +108,16 @@ export const insertInventorySchema = z.object({
   notes: z.string().nullable(),
 });
 
+// Member permissions table for granular access control
+export const memberPermissions = pgTable("member_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // References auth.users(id) in Supabase
+  companyIds: text("company_ids").array().notNull().default(sql`'{}'::text[]`), // Array of company IDs
+  canSeeInventory: boolean("can_see_inventory").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -117,6 +127,12 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
+});
+
+export const insertMemberPermissionSchema = createInsertSchema(memberPermissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -130,3 +146,5 @@ export type InsertEmail = z.infer<typeof insertEmailSchema>;
 export type Email = typeof emails.$inferSelect;
 export type InsertInventory = z.infer<typeof insertInventorySchema>;
 export type Inventory = typeof inventory.$inferSelect;
+export type InsertMemberPermission = z.infer<typeof insertMemberPermissionSchema>;
+export type MemberPermission = typeof memberPermissions.$inferSelect;

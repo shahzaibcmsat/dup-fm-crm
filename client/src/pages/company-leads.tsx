@@ -1,17 +1,18 @@
 import React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { Lead, Email, Company } from "@shared/schema";
 import { LeadCard } from "@/components/lead-card";
 import { EmailComposerModal } from "@/components/email-composer-modal";
 import { LeadDetailPanel } from "@/components/lead-detail-panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Building2, Trash2 } from "lucide-react";
+import { Loader2, Building2, Trash2, AlertCircle } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/hooks/use-auth";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,9 +23,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function CompanyLeads() {
   const [, params] = useRoute("/companies/:id");
+  const [, setLocation] = useLocation();
   const companyId = params?.id;
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
@@ -32,6 +35,23 @@ export default function CompanyLeads() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Check if member has access to this company
+  useEffect(() => {
+    if (user?.role === "member" && user?.permissions && companyId) {
+      const allowedCompanyIds = user.permissions.companyIds || [];
+      if (!allowedCompanyIds.includes(companyId)) {
+        // Redirect to dashboard if member doesn't have access
+        toast({
+          variant: "destructive",
+          title: "Access Denied",
+          description: "You don't have permission to view this company",
+        });
+        setLocation("/");
+      }
+    }
+  }, [user, companyId, setLocation, toast]);
 
   const { data: company, isLoading: companyLoading } = useQuery<Company>({
     queryKey: ['/api/companies', companyId],

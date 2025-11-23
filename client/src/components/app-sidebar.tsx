@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Home, Upload, Settings, Database, Building2, Plus, Package } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Company } from "@shared/schema";
 import { AddCompanyDialog } from "@/components/add-company-dialog";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Sidebar,
   SidebarContent,
@@ -47,11 +48,26 @@ export function AppSidebar() {
   const [location] = useLocation();
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
   const { unreadTotal } = useUnreadEmailCounts();
-  const userRole = localStorage.getItem("userRole");
+  const { user } = useAuth();
+  const userRole = user?.role || localStorage.getItem("userRole");
 
   const { data: companies = [] } = useQuery<Company[]>({
     queryKey: ['/api/companies'],
   });
+
+  // Filter companies based on member permissions
+  const filteredCompanies = useMemo(() => {
+    if (userRole === "admin") {
+      // Admins see all companies
+      return companies;
+    } else if (userRole === "member" && user?.permissions) {
+      // Members see only their assigned companies
+      const allowedCompanyIds = user.permissions.companyIds || [];
+      return companies.filter(company => allowedCompanyIds.includes(company.id));
+    }
+    // If no permissions set yet, show no companies
+    return [];
+  }, [companies, userRole, user?.permissions]);
 
   // Filter menu items based on user role
   const filteredMenuItems = menuItems.filter(item => {
@@ -62,8 +78,20 @@ export function AppSidebar() {
     return true;
   });
 
+  // Determine if inventory should be shown
+  const showInventory = useMemo(() => {
+    if (userRole === "admin") {
+      return true;
+    } else if (userRole === "member" && user?.permissions) {
+      return user.permissions.canSeeInventory;
+    }
+    return false;
+  }, [userRole, user?.permissions]);
+
   // Show companies section for all users
   const showCompanies = true;
+  // Only admins can add new companies
+  const canAddCompanies = userRole === "admin";
 
   return (
     <Sidebar>
@@ -109,24 +137,26 @@ export function AppSidebar() {
           <SidebarGroup>
             <div className="flex items-center justify-between px-2 py-1">
               <SidebarGroupLabel className="text-sm font-semibold">FMD Companies</SidebarGroupLabel>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                onClick={() => setIsAddCompanyOpen(true)}
-                data-testid="button-add-company"
-              >
-                <Plus className="h-5 w-5" />
-              </Button>
+              {canAddCompanies && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => setIsAddCompanyOpen(true)}
+                  data-testid="button-add-company"
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
+              )}
             </div>
             <SidebarGroupContent>
               <SidebarMenu>
-                {companies.length === 0 ? (
+                {filteredCompanies.length === 0 ? (
                   <div className="px-2 py-2 text-sm text-muted-foreground">
-                    No companies yet
+                    {userRole === "member" ? "No companies assigned" : "No companies yet"}
                   </div>
                 ) : (
-                  companies.map((company) => (
+                  filteredCompanies.map((company) => (
                     <SidebarMenuItem key={company.id}>
                       <SidebarMenuButton asChild isActive={location === `/companies/${company.id}`} className="text-base py-2.5">
                         <Link href={`/companies/${company.id}`} data-testid={`link-company-${company.id}`}>
@@ -142,21 +172,23 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sm font-semibold">Inventory</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === inventoryItem.url} className="text-base py-2.5">
-                  <Link href={inventoryItem.url}>
-                    <inventoryItem.icon className="w-5 h-5" />
-                    <span className="font-medium">{inventoryItem.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {showInventory && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-sm font-semibold">Inventory</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === inventoryItem.url} className="text-base py-2.5">
+                    <Link href={inventoryItem.url}>
+                      <inventoryItem.icon className="w-5 h-5" />
+                      <span className="font-medium">{inventoryItem.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="p-4 border-t bg-fmd-green/5">
         <div className="flex items-center gap-2">

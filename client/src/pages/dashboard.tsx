@@ -1,5 +1,5 @@
 import React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Lead, Email, Company } from "@shared/schema";
@@ -32,6 +32,7 @@ import { Users, Mail, TrendingUp, Clock, Loader2, Search, Filter, Plus, Building
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { notificationStore } from "@/lib/notificationStore";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Dashboard() {
   const [location, setLocation] = useLocation();
@@ -50,14 +51,31 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const leadsPerPage = 10;
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  const { data: leads = [], isLoading: leadsLoading } = useQuery<Lead[]>({
+  const { data: allLeads = [], isLoading: leadsLoading } = useQuery<Lead[]>({
     queryKey: ['/api/leads'],
   });
 
   const { data: companies = [] } = useQuery<Company[]>({
     queryKey: ['/api/companies'],
   });
+
+  // Filter leads based on member permissions
+  const leads = useMemo(() => {
+    if (user?.role === 'admin') {
+      // Admins see all leads
+      return allLeads;
+    } else if (user?.role === 'member' && user?.permissions) {
+      // Members only see leads from their assigned companies
+      const allowedCompanyIds = user.permissions.companyIds || [];
+      return allLeads.filter(lead => 
+        lead.companyId && allowedCompanyIds.includes(lead.companyId)
+      );
+    }
+    // Default: no leads if no permissions
+    return [];
+  }, [allLeads, user?.role, user?.permissions]);
 
   const { data: emails = [] } = useQuery<Email[]>({
     queryKey: ['/api/emails', selectedLead?.id],

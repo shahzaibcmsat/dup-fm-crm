@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Download, Plus, Trash2, Database, Bold, Type, Palette, FolderPlus, FolderMinus, Search, X } from "lucide-react";
+import { Upload, Download, Plus, Trash2, Database, Bold, Type, Palette, FolderPlus, FolderMinus, Search, X, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import * as XLSX from "xlsx";
 
 // Register AG Grid modules
@@ -36,9 +38,26 @@ interface InventoryItem {
 
 export default function InventoryPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const gridRef = useRef<AgGridReact>(null);
   const [gridApi, setGridApi] = useState<GridApi | null>(null);
+
+  // Check if user has access to inventory
+  const hasInventoryAccess = user?.role === "admin" || (user?.role === "member" && user?.permissions?.canSeeInventory);
+
+  if (!hasInventoryAccess) {
+    return (
+      <div className="container mx-auto p-4">
+        <Alert className="max-w-2xl mx-auto mt-8">
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to view the inventory page. Please contact your administrator.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
   const [activeTab, setActiveTab] = useState("all");
   const [fontSize, setFontSize] = useState("14");
   const [cellColor, setCellColor] = useState("#ffffff");
