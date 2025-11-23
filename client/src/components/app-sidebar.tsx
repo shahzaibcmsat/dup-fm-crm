@@ -55,8 +55,8 @@ export function AppSidebar() {
 
   // Filter menu items based on user role
   const filteredMenuItems = menuItems.filter(item => {
-    if (userRole === "client") {
-      // Hide Import and Settings for client users, but show Dashboard (leads)
+    if (userRole === "member") {
+      // Hide Import and Settings for member users
       return item.title !== "Import" && item.title !== "Settings";
     }
     return true;

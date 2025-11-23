@@ -1146,6 +1146,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== USER MANAGEMENT API ====================
+  // Get all users (admin only)
+  app.get("/api/users", async (req, res) => {
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      
+      if (!supabaseServiceKey) {
+        return res.status(500).json({ message: "Supabase service key not configured" });
+      }
+      
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (error) throw error;
+      
+      const users = data.users.map(user => ({
+        id: user.id,
+        email: user.email,
+        role: user.user_metadata?.role || 'member',
+        created_at: user.created_at,
+        email_confirmed_at: user.email_confirmed_at,
+      }));
+      
+      res.json(users);
+    } catch (error: any) {
+      console.error("Failed to fetch users:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create new user (admin only)
+  app.post("/api/users", async (req, res) => {
+    try {
+      const { email, password, role, autoConfirm } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+      
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+      
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      
+      if (!supabaseServiceKey) {
+        return res.status(500).json({ message: "Supabase service key not configured" });
+      }
+      
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: autoConfirm,
+        user_metadata: {
+          role: role || 'member'
+        }
+      });
+      
+      if (error) throw error;
+      
+      res.json({ 
+        success: true, 
+        message: "User created successfully",
+        user: {
+          id: data.user.id,
+          email: data.user.email,
+          role: data.user.user_metadata?.role || 'member'
+        }
+      });
+    } catch (error: any) {
+      console.error("Failed to create user:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Delete user (admin only)
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      
+      if (!supabaseServiceKey) {
+        return res.status(500).json({ message: "Supabase service key not configured" });
+      }
+      
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+      
+      if (error) throw error;
+      
+      res.json({ success: true, message: "User deleted successfully" });
+    } catch (error: any) {
+      console.error("Failed to delete user:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

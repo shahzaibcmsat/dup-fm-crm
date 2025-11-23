@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, CheckCircle2, AlertCircle } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ImportSummary {
   totalRows: number;
@@ -30,10 +31,23 @@ interface ImportResponse {
 }
 
 export default function Import() {
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   const { toast } = useToast();
+  
+  // Only admins can access import
+  if (user?.role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">You need admin privileges to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   const uploadFileMutation = useMutation({
     mutationFn: async (file: File) => {

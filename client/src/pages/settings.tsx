@@ -9,6 +9,8 @@ import { Mail, CheckCircle2, Database, Key, Server, Save, Eye, EyeOff, Bell, Bel
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { queryClient } from "@/lib/queryClient";
+import { UserManagement } from "@/components/user-management";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ConfigData {
   DATABASE_URL: string;
@@ -24,6 +26,7 @@ interface ConfigData {
 }
 
 export default function Settings() {
+  const { user } = useAuth();
   const [config, setConfig] = useState<ConfigData>({
     DATABASE_URL: '',
     AZURE_CLIENT_ID: '',
@@ -41,6 +44,18 @@ export default function Settings() {
   const [clearing, setClearing] = useState(false);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
+  
+  // Only admins can access settings
+  if (user?.role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">You need admin privileges to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     loadConfig();
@@ -206,6 +221,9 @@ export default function Settings() {
         </Card>
       ) : (
         <div className="space-y-4 sm:space-y-6">
+          {/* User Management */}
+          <UserManagement />
+          
           {/* Database Configuration */}
           <Card>
             <CardHeader>

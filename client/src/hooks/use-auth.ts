@@ -5,7 +5,7 @@ import type { User as SupabaseUser } from '@supabase/supabase-js';
 interface User {
   id: string;
   email: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'member';
 }
 
 interface AuthState {
@@ -30,7 +30,7 @@ export const useAuth = create<AuthState>((set: any) => ({
         const user: User = {
           id: session.user.id,
           email: session.user.email || '',
-          role: (session.user.user_metadata?.role || 'user') as 'admin' | 'user',
+          role: (session.user.user_metadata?.role || 'member') as 'admin' | 'member',
         };
         
         set({ user, isAuthenticated: true, isLoading: false });
@@ -66,7 +66,7 @@ export const useAuth = create<AuthState>((set: any) => ({
         const user: User = {
           id: data.user.id,
           email: data.user.email || '',
-          role: (data.user.user_metadata?.role || 'user') as 'admin' | 'user',
+          role: (data.user.user_metadata?.role || 'member') as 'admin' | 'member',
         };
         
         set({ user, isAuthenticated: true });
