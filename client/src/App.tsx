@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationBell } from "@/components/notification-bell";
 import { useEmailNotifications } from "@/hooks/use-email-notifications";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
@@ -48,10 +49,10 @@ function AuthenticatedApp() {
     navigate(`/leads?selected=${leadId}`);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("username");
-    navigate("/login");
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (
@@ -96,11 +97,31 @@ function AuthenticatedApp() {
 }
 
 export default function App() {
-  const [location] = useLocation();
-  const isAuthenticated = localStorage.getItem("userRole");
+  const [location, navigate] = useLocation();
+  const { isAuthenticated, isLoading, checkAuth } = useAuth();
+
+  // Check authentication status on mount
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  // Show loading spinner while checking auth
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-fmd-green to-green-700">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
 
   // If on login page, show login without sidebar/header
   if (location === "/login") {
+    // If already authenticated, redirect to dashboard
+    if (isAuthenticated) {
+      navigate("/");
+      return null;
+    }
+    
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
@@ -113,7 +134,7 @@ export default function App() {
 
   // If not authenticated and not on login page, redirect to login
   if (!isAuthenticated) {
-    window.location.href = "/login";
+    navigate("/login");
     return null;
   }
 

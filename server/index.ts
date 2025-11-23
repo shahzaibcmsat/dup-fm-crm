@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import session from 'express-session';
+import passport from './auth';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeConfig } from "./config-manager";
@@ -11,6 +13,23 @@ declare module 'http' {
     rawBody: unknown
   }
 }
+
+// Configure session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'fmd-crm-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  },
+}));
+
+// Initialize passport
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.use(express.json({
   verify: (req, _res, buf) => {
     req.rawBody = buf;

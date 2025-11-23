@@ -13,33 +13,49 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simple authentication logic
-    if (username === "Admin" && password === "NapolloDevops") {
-      localStorage.setItem("userRole", "admin");
-      localStorage.setItem("username", "Admin");
-      toast({
-        title: "Welcome Admin!",
-        description: "You have successfully logged in.",
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+        credentials: "include", // Important for session cookies
       });
-      setLocation("/");
-    } else if (username === "FMD" && password === "Napollo@786") {
-      localStorage.setItem("userRole", "client");
-      localStorage.setItem("username", "FMD");
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store user info in localStorage for UI purposes
+        localStorage.setItem("userRole", data.user.role);
+        localStorage.setItem("username", data.user.username);
+        localStorage.setItem("userId", data.user.id);
+
+        toast({
+          title: `Welcome ${data.user.username}!`,
+          description: "You have successfully logged in.",
+        });
+        
+        setLocation("/");
+      } else {
+        toast({
+          title: "Login Failed",
+          description: data.message || "Invalid username or password.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
       toast({
-        title: "Welcome FMD!",
-        description: "You have successfully logged in.",
-      });
-      setLocation("/");
-    } else {
-      toast({
-        title: "Login Failed",
-        description: "Invalid username or password.",
+        title: "Error",
+        description: "Failed to connect to server. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };

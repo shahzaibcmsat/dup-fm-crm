@@ -5,16 +5,114 @@ import * as XLSX from "xlsx";
 import { storage } from "./storage";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
-import { insertLeadSchema, insertEmailSchema, insertCompanySchema, insertInventorySchema } from "@shared/schema";
+import { insertLeadSchema, insertEmailSchema, insertCompanySchema, insertInventorySchema, loginSchema } from "@shared/schema";
 import { sendEmail, isMicrosoftGraphConfigured, getAuthorizationUrl, exchangeCodeForTokens } from "./outlook";
 import { grammarFix, generateAutoReply } from "./groq";
 import { getAllConfig, saveConfigToFile, validateConfig } from "./config-manager";
+import passport from './auth';
+import { isAuthenticated, isAdmin, createUser } from './auth';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ==================== AUTHENTICATION ROUTES ====================
+  
+  // Login endpoint
+  app.post("/api/auth/login", (req, res, next) => {
+    try {
+      // Validate request body
+      const validation = loginSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid credentials format" });
+      }
+
+      passport.authenticate('local', (err: any, user: any, info: any) => {
+        if (err) {
+          console.error('Authentication error:', err);
+          return res.status(500).json({ message: 'Authentication failed' });
+        }
+
+        if (!user) {
+          return res.status(401).json({ message: info?.message || 'Invalid credentials' });
+        }
+
+        req.login(user, (loginErr) => {
+          if (loginErr) {
+            console.error('Login error:', loginErr);
+            return res.status(500).json({ message: 'Login failed' });
+          }
+
+          console.log(`✅ User logged in: ${user.username} (${user.role})`);
+          res.json({
+            user: {
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              role: user.role,
+            },
+          });
+        });
+      })(req, res, next);
+    } catch (error: any) {
+      console.error('Login route error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
+
+  // Logout endpoint
+  app.post("/api/auth/logout", (req, res) => {
+    const username = (req.user as any)?.username;
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ message: 'Logout failed' });
+      }
+      console.log(`👋 User logged out: ${username || 'unknown'}`);
+      res.json({ message: 'Logged out successfully' });
+    });
+  });
+
+  // Check authentication status
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated()) {
+      const user = req.user as any;
+      res.json({
+        authenticated: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    } else {
+      res.json({ authenticated: false, user: null });
+    }
+  });
+
+  // Register new user (admin only)
+  app.post("/api/auth/register", isAdmin, async (req, res) => {
+    try {
+      const { username, email, password, role } = req.body;
+
+      if (!username || !email || !password) {
+        return res.status(400).json({ message: 'Username, email, and password are required' });
+      }
+
+      const user = await createUser(username, email, password, role || 'user');
+      res.status(201).json({ user });
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      if (error.code === '23505') { // Unique constraint violation
+        return res.status(409).json({ message: 'Username or email already exists' });
+      }
+      res.status(500).json({ message: 'Registration failed' });
+    }
+  });
+
+  // ==================== PROTECTED ROUTES ====================
+  // All routes below require authentication
   // Grammar check endpoint for email composition
-  app.post("/api/grammar/fix", async (req, res) => {
+  app.post("/api/grammar/fix", isAuthenticated, async (req, res) => {
     try {
       const { text } = req.body;
       if (!text) {
@@ -29,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Auto-reply generation endpoint
-  app.post("/api/emails/generate-reply", async (req, res) => {
+  app.post("/api/emails/generate-reply", isAuthenticated, async (req, res) => {
     try {
       const { leadId, currentDraft } = req.body;
       
@@ -179,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/leads", async (req, res) => {
+  app.get("/api/leads", isAuthenticated, async (req, res) => {
     try {
       const leads = await storage.getAllLeads();
       res.json(leads);
@@ -188,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/leads/:id", async (req, res) => {
+  app.get("/api/leads/:id", isAuthenticated, async (req, res) => {
     try {
       const lead = await storage.getLead(req.params.id);
       if (!lead) {
@@ -200,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/leads", async (req, res) => {
+  app.post("/api/leads", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertLeadSchema.parse(req.body);
       const lead = await storage.createLead(validatedData);
@@ -210,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/leads/:id", async (req, res) => {
+  app.patch("/api/leads/:id", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertLeadSchema.parse(req.body);
       const lead = await storage.updateLead(req.params.id, validatedData);
@@ -223,7 +321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/leads/:id/status", async (req, res) => {
+  app.patch("/api/leads/:id/status", isAuthenticated, async (req, res) => {
     try {
       const { status } = req.body;
       if (!status) {
@@ -239,7 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/leads/:id/notes", async (req, res) => {
+  app.patch("/api/leads/:id/notes", isAuthenticated, async (req, res) => {
     try {
       const { notes } = req.body;
       if (notes === undefined) {
@@ -255,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/leads/:id", async (req, res) => {
+  app.delete("/api/leads/:id", isAdmin, async (req, res) => {
     try {
       const success = await storage.deleteLead(req.params.id);
       if (!success) {
@@ -267,7 +365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/leads/bulk-delete", async (req, res) => {
+  app.post("/api/leads/bulk-delete", isAdmin, async (req, res) => {
     try {
       const { ids } = req.body;
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -283,7 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/leads/bulk-assign-company", async (req, res) => {
+  app.post("/api/leads/bulk-assign-company", isAuthenticated, async (req, res) => {
     try {
       const { leadIds, companyId } = req.body;
       console.log("📋 Bulk assign company request:", { leadIds, companyId });
@@ -313,7 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/leads/:id/send-email", async (req, res) => {
+  app.post("/api/leads/:id/send-email", isAuthenticated, async (req, res) => {
     try {
       const lead = await storage.getLead(req.params.id);
       if (!lead) {
@@ -385,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/emails/:leadId", async (req, res) => {
+  app.get("/api/emails/:leadId", isAuthenticated, async (req, res) => {
     try {
       const emails = await storage.getEmailsByLeadId(req.params.leadId);
       res.json(emails);
@@ -395,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get recent email notifications
-  app.get("/api/notifications/emails", async (req, res) => {
+  app.get("/api/notifications/emails", isAuthenticated, async (req, res) => {
     try {
       const { getRecentNotifications } = await import("./index");
       const since = req.query.since as string | undefined;
@@ -412,7 +510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dismiss notifications for a specific lead (when user views the lead)
-  app.post("/api/notifications/dismiss/:leadId", async (req, res) => {
+  app.post("/api/notifications/dismiss/:leadId", isAuthenticated, async (req, res) => {
     try {
       const { dismissNotificationsForLead } = await import("./index");
       const { leadId } = req.params;
@@ -425,7 +523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dismiss a specific notification by ID
-  app.post("/api/notifications/dismiss-id/:notificationId", async (req, res) => {
+  app.post("/api/notifications/dismiss-id/:notificationId", isAuthenticated, async (req, res) => {
     try {
       const { dismissNotification } = await import("./index");
       const { notificationId } = req.params;
@@ -437,7 +535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Clear all notifications (admin action from Settings)
-  app.post("/api/notifications/clear", async (req, res) => {
+  app.post("/api/notifications/clear", isAdmin, async (req, res) => {
     try {
       const { clearAllNotifications } = await import("./index");
       clearAllNotifications();
@@ -449,7 +547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sync emails from inbox (check for new replies)
-  app.post("/api/emails/sync", async (req, res) => {
+  app.post("/api/emails/sync", isAuthenticated, async (req, res) => {
     try {
       const { fetchNewEmails, getInReplyToHeader } = await import("./outlook");
       const { addEmailNotification } = await import("./index");
@@ -552,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/import/file", upload.single("file"), async (req, res) => {
+  app.post("/api/import/file", isAdmin, upload.single("file"), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -727,7 +825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies", async (req, res) => {
+  app.get("/api/companies", isAuthenticated, async (req, res) => {
     try {
       const companies = await storage.getAllCompanies();
       res.json(companies);
@@ -736,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies/:id", async (req, res) => {
+  app.get("/api/companies/:id", isAuthenticated, async (req, res) => {
     try {
       const company = await storage.getCompany(req.params.id);
       if (!company) {
@@ -748,7 +846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies/:id/leads", async (req, res) => {
+  app.get("/api/companies/:id/leads", isAuthenticated, async (req, res) => {
     try {
       const leads = await storage.getLeadsByCompany(req.params.id);
       res.json(leads);
@@ -757,7 +855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/companies", async (req, res) => {
+  app.post("/api/companies", isAdmin, async (req, res) => {
     try {
       const validatedData = insertCompanySchema.parse(req.body);
       const company = await storage.createCompany(validatedData);
@@ -767,7 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/companies/:id", async (req, res) => {
+  app.patch("/api/companies/:id", isAdmin, async (req, res) => {
     try {
       const validatedData = insertCompanySchema.parse(req.body);
       const company = await storage.updateCompany(req.params.id, validatedData);
@@ -780,7 +878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/companies/:id", async (req, res) => {
+  app.delete("/api/companies/:id", isAdmin, async (req, res) => {
     try {
       const deleted = await storage.deleteCompany(req.params.id);
       if (!deleted) {
@@ -793,7 +891,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Configuration management endpoints
-  app.get("/api/config", async (req, res) => {
+  app.get("/api/config", isAdmin, async (req, res) => {
     try {
       const config = getAllConfig(false); // Don't include full sensitive values
       res.json(config);
@@ -802,7 +900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/config", async (req, res) => {
+  app.post("/api/config", isAdmin, async (req, res) => {
     try {
       const updates = req.body;
       
@@ -834,7 +932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Inventory management endpoints
-  app.post("/api/migrate/inventory-schema", async (req, res) => {
+  app.post("/api/migrate/inventory-schema", isAdmin, async (req, res) => {
     try {
       const { db } = await import('./db');
       const { sql: execSql } = await import('drizzle-orm');
@@ -870,7 +968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/inventory", async (req, res) => {
+  app.get("/api/inventory", isAuthenticated, async (req, res) => {
     try {
       const items = await storage.getAllInventory();
       res.json(items);
@@ -879,7 +977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/inventory/:id", async (req, res) => {
+  app.get("/api/inventory/:id", isAuthenticated, async (req, res) => {
     try {
       const item = await storage.getInventoryItem(req.params.id);
       if (!item) {
@@ -891,7 +989,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/inventory", async (req, res) => {
+  app.post("/api/inventory", isAdmin, async (req, res) => {
     try {
       const validated = insertInventorySchema.parse(req.body);
       const item = await storage.createInventoryItem(validated);
@@ -901,7 +999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/inventory/:id", async (req, res) => {
+  app.put("/api/inventory/:id", isAdmin, async (req, res) => {
     try {
       const validated = insertInventorySchema.parse(req.body);
       const item = await storage.updateInventoryItem(req.params.id, validated);
@@ -914,7 +1012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/inventory/:id", async (req, res) => {
+  app.delete("/api/inventory/:id", isAdmin, async (req, res) => {
     try {
       const deleted = await storage.deleteInventoryItem(req.params.id);
       if (!deleted) {
@@ -926,7 +1024,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/inventory/bulk-delete", async (req, res) => {
+  app.post("/api/inventory/bulk-delete", isAdmin, async (req, res) => {
     try {
       const { ids } = req.body;
       if (!Array.isArray(ids)) {
@@ -939,7 +1037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/inventory/import", upload.single("file"), async (req, res) => {
+  app.post("/api/inventory/import", isAdmin, upload.single("file"), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -1070,7 +1168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Migration endpoint to update inventory schema
-  app.post("/api/migrate-inventory", async (req, res) => {
+  app.post("/api/migrate-inventory", isAdmin, async (req, res) => {
     try {
       console.log("🔧 Running inventory schema migration...");
       
@@ -1104,7 +1202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Migration endpoint to add notes column to leads table
-  app.post("/api/migrate/add-notes-to-leads", async (req, res) => {
+  app.post("/api/migrate/add-notes-to-leads", isAdmin, async (req, res) => {
     try {
       console.log("🔄 Running migration: add notes column to leads table");
       
@@ -1138,4 +1236,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
+
+
 
