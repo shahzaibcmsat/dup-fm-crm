@@ -1,49 +1,32 @@
 import React from "react";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Mail, CheckCircle2, Database, Key, Server, Save, Eye, EyeOff, Bell, BellOff } from "lucide-react";
+import { Mail, CheckCircle2, Server, BellOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Separator } from "@/components/ui/separator";
 import { queryClient } from "@/lib/queryClient";
 import { UserManagement } from "@/components/user-management";
 import { PermissionManagement } from "@/components/permission-management";
 import { useAuth } from "@/hooks/use-auth";
 
 interface ConfigData {
-  DATABASE_URL: string;
   GMAIL_CLIENT_ID: string;
   GMAIL_CLIENT_SECRET: string;
-  GMAIL_REFRESH_TOKEN: string;
-  GMAIL_REDIRECT_URI: string;
   EMAIL_FROM_ADDRESS: string;
   GROQ_API_KEY: string;
-  GROQ_MODEL: string;
-  PORT: string;
-  NODE_ENV: string;
 }
 
 export default function Settings() {
   const { user } = useAuth();
   const [config, setConfig] = useState<ConfigData>({
-    DATABASE_URL: '',
     GMAIL_CLIENT_ID: '',
     GMAIL_CLIENT_SECRET: '',
-    GMAIL_REFRESH_TOKEN: '',
-    GMAIL_REDIRECT_URI: '',
     EMAIL_FROM_ADDRESS: '',
     GROQ_API_KEY: '',
-    GROQ_MODEL: '',
-    PORT: '',
-    NODE_ENV: '',
   });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
-  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   
   // Only admins can access settings
@@ -79,40 +62,6 @@ export default function Settings() {
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        toast({
-          title: "Success",
-          description: data.message || "Configuration saved successfully",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: data.errors?.join(', ') || data.message || "Failed to save configuration",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save configuration",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleClearNotifications = async () => {
     setClearing(true);
     try {
@@ -138,86 +87,30 @@ export default function Settings() {
     }
   };
 
-  const handleInputChange = (field: keyof ConfigData, value: string) => {
-    setConfig(prev => ({ ...prev, [field]: value }));
-  };
-
-  const toggleSecretVisibility = (field: string) => {
-    setShowSecrets(prev => ({ ...prev, [field]: !prev[field] }));
-  };
-
-  const renderSecretInput = (field: keyof ConfigData, label: string, placeholder: string, icon?: React.ReactNode) => (
-    <div className="space-y-2">
-      <Label htmlFor={field} className="flex items-center gap-2">
-        {icon}
-        {label}
-      </Label>
-      <div className="flex gap-2">
-        <Input
-          id={field}
-          type={showSecrets[field] ? "text" : "password"}
-          value={config[field]}
-          onChange={(e) => handleInputChange(field, e.target.value)}
-          placeholder={placeholder}
-          className="flex-1"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => toggleSecretVisibility(field)}
-        >
-          {showSecrets[field] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </Button>
-      </div>
-    </div>
-  );
-
-  const renderInput = (field: keyof ConfigData, label: string, placeholder: string, icon?: React.ReactNode) => (
-    <div className="space-y-2">
-      <Label htmlFor={field} className="flex items-center gap-2">
-        {icon}
-        {label}
-      </Label>
-      <Input
-        id={field}
-        value={config[field]}
-        onChange={(e) => handleInputChange(field, e.target.value)}
-        placeholder={placeholder}
-      />
-    </div>
-  );
-
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold mb-2">Settings</h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Manage your API keys and environment configuration
+            View connection status and manage users
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            onClick={handleClearNotifications} 
-            disabled={clearing} 
-            variant="destructive" 
-            className="text-sm sm:text-base"
-          >
-            <BellOff className="w-4 h-4 mr-2" />
-            {clearing ? "Clearing..." : "Clear Notifications"}
-          </Button>
-          <Button onClick={handleSave} disabled={saving || loading} className="text-sm sm:text-base">
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </div>
+        <Button 
+          onClick={handleClearNotifications} 
+          disabled={clearing} 
+          variant="destructive" 
+          className="text-sm sm:text-base"
+        >
+          <BellOff className="w-4 h-4 mr-2" />
+          {clearing ? "Clearing..." : "Clear Notifications"}
+        </Button>
       </div>
 
       {loading ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground">Loading configuration...</p>
+            <p className="text-muted-foreground">Loading...</p>
           </CardContent>
         </Card>
       ) : (
