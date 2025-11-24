@@ -16,6 +16,7 @@ interface ImportSummary {
   duplicateLeads: number;
   invalidRows: number;
   duplicateEmails: string[];
+  successfulEmails: string[];
   fileInternalDuplicates: string[];
   rejectedCount: number;
 }
@@ -153,6 +154,34 @@ export function ImportSummaryDialog({
             )}
           </div>
 
+          {/* Successfully Imported Emails */}
+          {summary.successfulEmails && summary.successfulEmails.length > 0 && (
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                Successfully Imported Emails ({summary.successfulEmails.length})
+              </h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                These emails were successfully added to your database.
+              </p>
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {summary.successfulEmails.slice(0, 20).map((email, idx) => (
+                  <div
+                    key={idx}
+                    className="text-sm px-3 py-1.5 bg-background rounded border text-muted-foreground font-mono"
+                  >
+                    {email}
+                  </div>
+                ))}
+                {summary.successfulEmails.length > 20 && (
+                  <p className="text-sm text-muted-foreground italic px-3 py-1">
+                    ... and {summary.successfulEmails.length - 20} more
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Duplicate Details */}
           {summary.duplicateEmails.length > 0 && (
             <div className="border rounded-lg p-4 bg-muted/30">
@@ -161,7 +190,7 @@ export function ImportSummaryDialog({
                 Duplicate Emails Found ({summary.duplicateEmails.length})
               </h4>
               <p className="text-sm text-muted-foreground mb-3">
-                These emails already exist in your database. They were attempted to import but may have been rejected by database constraints.
+                These emails already exist in your database but still we have added these.
               </p>
               <div className="max-h-40 overflow-y-auto space-y-1">
                 {summary.duplicateEmails.slice(0, 20).map((email, idx) => (

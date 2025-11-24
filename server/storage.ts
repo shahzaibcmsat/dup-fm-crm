@@ -202,7 +202,9 @@ export class DatabaseStorage implements IStorage {
 
   async createLeads(leadsList: InsertLead[]): Promise<Lead[]> {
     if (leadsList.length === 0) return [];
-    return await db.insert(leads).values(leadsList).returning();
+    // Use onConflictDoNothing to skip duplicates without error
+    // This returns only the successfully inserted leads
+    return await db.insert(leads).values(leadsList).onConflictDoNothing().returning();
   }
 
   async getAllCompanies(): Promise<Company[]> {

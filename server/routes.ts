@@ -679,7 +679,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdLeads = await storage.createLeads(validatedLeads);
       const createdCount = createdLeads.length;
       
+      // Get emails of successfully imported leads
+      const successfulEmails = createdLeads.map(lead => lead.email);
+      
       console.log(`✅ Successfully imported ${createdCount} leads`);
+      console.log(`📧 Successfully imported emails:`, successfulEmails);
 
       res.json({ 
         success: true, 
@@ -694,6 +698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           duplicateLeads: duplicateEmails.length,
           invalidRows: rawData.length - leads.length,
           duplicateEmails: duplicateEmails,
+          successfulEmails: successfulEmails,
           fileInternalDuplicates: fileInternalDuplicates,
           rejectedCount: leads.length - createdCount
         }
