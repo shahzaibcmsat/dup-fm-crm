@@ -298,48 +298,52 @@ export default function Leads() {
           </p>
         </div>
         <div className="flex gap-2">
-          {selectedLeadIds.size > 0 && user?.role === 'admin' && (
+          {selectedLeadIds.size > 0 && (
             <>
-              <Select
-                value={bulkAssignUserId}
-                onValueChange={(value) => {
-                  setBulkAssignUserId(value);
-                  if (value && selectedLeadIds.size > 0) {
-                    bulkAssignMutation.mutate({
-                      leadIds: Array.from(selectedLeadIds),
-                      userId: value
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Assign to..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-gray-300"></div>
-                      <span>Unassigned</span>
-                    </div>
-                  </SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
+              {user?.role === 'admin' && (
+                <Select
+                  value={bulkAssignUserId}
+                  onValueChange={(value) => {
+                    setBulkAssignUserId(value);
+                    if (value && selectedLeadIds.size > 0) {
+                      bulkAssignMutation.mutate({
+                        leadIds: Array.from(selectedLeadIds),
+                        userId: value
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Set Assignee..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">
                       <div className="flex items-center gap-2">
-                        <UserCog className="w-3 h-3 text-blue-500" />
-                        <span>{u.email}</span>
+                        <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                        <span>Unassigned</span>
                       </div>
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteSelected}
-                disabled={bulkDeleteMutation.isPending}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete {selectedLeadIds.size}
-              </Button>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <div className="flex items-center gap-2">
+                          <UserCog className="w-3 h-3 text-blue-500" />
+                          <span>{u.email}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {user?.role === 'admin' && (
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteSelected}
+                  disabled={bulkDeleteMutation.isPending}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete {selectedLeadIds.size}
+                </Button>
+              )}
             </>
           )}
           <Button 
@@ -480,6 +484,7 @@ export default function Leads() {
                     onReply={handleReply}
                     onViewDetails={setSelectedLead}
                     onStatusChange={handleStatusChange}
+                    users={users}
                   />
                 </div>
               </div>

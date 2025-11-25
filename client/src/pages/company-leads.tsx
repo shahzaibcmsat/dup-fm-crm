@@ -1,5 +1,5 @@
 import React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Lead, Email, Company } from "@shared/schema";
@@ -37,21 +37,7 @@ export default function CompanyLeads() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Check if member has access to this company
-  useEffect(() => {
-    if (user?.role === "member" && user?.permissions && companyId) {
-      const allowedCompanyIds = user.permissions.companyIds || [];
-      if (!allowedCompanyIds.includes(companyId)) {
-        // Redirect to dashboard if member doesn't have access
-        toast({
-          variant: "destructive",
-          title: "Access Denied",
-          description: "You don't have permission to view this company",
-        });
-        setLocation("/");
-      }
-    }
-  }, [user, companyId, setLocation, toast]);
+  // Note: Access control is now handled by lead assignment filtering below
 
   const { data: company, isLoading: companyLoading } = useQuery<Company>({
     queryKey: ['/api/companies', companyId],
@@ -63,7 +49,7 @@ export default function CompanyLeads() {
     enabled: !!companyId,
   });
 
-  const { data: leads = [], isLoading: leadsLoading } = useQuery<Lead[]>({
+  const { data: allCompanyLeads = [], isLoading: leadsLoading } = useQuery<Lead[]>({
     queryKey: ['/api/companies', companyId, 'leads'],
     queryFn: async () => {
       const response = await fetch(`/api/companies/${companyId}/leads`);
@@ -71,6 +57,29 @@ export default function CompanyLeads() {
       return response.json();
     },
     enabled: !!companyId,
+  });
+
+  // Filter leads based on assignment for members
+  const leads = useMemo(() => {
+    if (user?.role === 'admin') {
+      // Admins see all leads for this company
+      return allCompanyLeads;
+    } else if (user?.role === 'member' && user?.id) {
+      // Members only see leads assigned to them
+      return allCompanyLeads.filter(lead => lead.assignedTo === user.id);
+    }
+    // Default: no leads
+    return [];
+  }, [allCompanyLeads, user?.role, user?.id]);
+
+  // Fetch all users for assignment display
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ['/api/users'],
+    queryFn: async () => {
+      const res = await fetch('/api/users', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch users');
+      return res.json();
+    },
   });
 
   const { data: emails = [] } = useQuery<Email[]>({
@@ -282,6 +291,7 @@ export default function CompanyLeads() {
                     onReply={handleReply}
                     onViewDetails={setSelectedLead}
                     onStatusChange={handleStatusChange}
+                    users={users}
                   />
                 </div>
               </div>

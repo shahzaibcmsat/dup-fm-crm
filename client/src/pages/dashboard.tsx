@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Users, Mail, TrendingUp, Clock, Loader2, Search, Filter, Plus, Building2, Trash2 } from "lucide-react";
+import { Users, Mail, TrendingUp, Clock, Loader2, Search, Filter, Plus, Building2, Trash2, UserCog } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { notificationStore } from "@/lib/notificationStore";
@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isAssignCompanyDialogOpen, setIsAssignCompanyDialogOpen] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+  const [bulkAssignUserId, setBulkAssignUserId] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const leadsPerPage = 10;
   const { toast } = useToast();
@@ -61,21 +62,28 @@ export default function Dashboard() {
     queryKey: ['/api/companies'],
   });
 
-  // Filter leads based on member permissions
+  // Fetch all users for assignment
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ['/api/users'],
+    queryFn: async () => {
+      const res = await fetch('/api/users', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch users');
+      return res.json();
+    },
+  });
+
+  // Filter leads based on assignment
   const leads = useMemo(() => {
     if (user?.role === 'admin') {
       // Admins see all leads
       return allLeads;
-    } else if (user?.role === 'member' && user?.permissions) {
-      // Members only see leads from their assigned companies
-      const allowedCompanyIds = user.permissions.companyIds || [];
-      return allLeads.filter(lead => 
-        lead.companyId && allowedCompanyIds.includes(lead.companyId)
-      );
+    } else if (user?.role === 'member' && user?.id) {
+      // Members only see leads assigned to them
+      return allLeads.filter(lead => lead.assignedTo === user.id);
     }
-    // Default: no leads if no permissions
+    // Default: no leads
     return [];
-  }, [allLeads, user?.role, user?.permissions]);
+  }, [allLeads, user?.role, user?.id]);
 
   const { data: emails = [] } = useQuery<Email[]>({
     queryKey: ['/api/emails', selectedLead?.id],
@@ -196,6 +204,32 @@ export default function Dashboard() {
     onError: (error: Error) => {
       toast({
         title: "Failed to assign company",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkAssignMutation = useMutation({
+    mutationFn: async ({ leadIds, userId }: { leadIds: string[]; userId: string }) => {
+      return apiRequest("POST", `/api/leads/bulk-assign-user`, { 
+        leadIds, 
+        userId: userId === "unassigned" ? null : userId,
+        assignedBy: user?.id
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Leads assigned",
+        description: `${data.count} lead(s) assigned successfully.`,
+      });
+      setSelectedLeadIds(new Set());
+      setBulkAssignUserId("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to assign leads",
         description: error.message,
         variant: "destructive",
       });
@@ -357,6 +391,40 @@ export default function Dashboard() {
         <div className="flex flex-wrap gap-2">
           {selectedLeadIds.size > 0 && (
             <>
+              {user?.role === 'admin' && (
+                <Select
+                  value={bulkAssignUserId}
+                  onValueChange={(value) => {
+                    setBulkAssignUserId(value);
+                    if (value && selectedLeadIds.size > 0) {
+                      bulkAssignMutation.mutate({
+                        leadIds: Array.from(selectedLeadIds),
+                        userId: value
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-40 sm:w-48 text-sm sm:text-base">
+                    <SelectValue placeholder="Set Assignee..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                        <span>Unassigned</span>
+                      </div>
+                    </SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <div className="flex items-center gap-2">
+                          <UserCog className="w-3 h-3 text-blue-500" />
+                          <span>{u.email}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Button
                 variant="outline"
                 onClick={handleAssignCompany}
@@ -558,6 +626,7 @@ export default function Dashboard() {
                       onReply={handleReply}
                       onViewDetails={setSelectedLead}
                       onStatusChange={handleStatusChange}
+                      users={users}
                     />
                   </div>
                 </div>

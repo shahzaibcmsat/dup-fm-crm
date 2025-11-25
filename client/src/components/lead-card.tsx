@@ -1,5 +1,5 @@
 import React from "react";
-import { Mail, Clock, Building2, Phone, MessageSquare } from "lucide-react";
+import { Mail, Clock, Building2, Phone, MessageSquare, UserCog } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ interface LeadCardProps {
   onReply: (lead: Lead) => void;
   onViewDetails: (lead: Lead) => void;
   onStatusChange?: (leadId: string, status: string) => void;
+  users?: any[];
 }
 
 const statusConfig: Record<string, { bg: string; text: string; ring: string }> = {
@@ -69,10 +70,13 @@ const statusOptions = [
   "Closed"
 ];
 
-export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadCardProps) {
+export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, users = [] }: LeadCardProps) {
   const { perLeadUnread } = useUnreadEmailCounts();
   const unread = perLeadUnread[lead.id] || 0;
   const hasUnread = unread > 0;
+  
+  // Find the assigned user
+  const assignedUser = lead.assignedTo ? users.find(u => u.id === lead.assignedTo) : null;
   
   return (
     <Card 
@@ -139,6 +143,14 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange }: LeadC
             <p className={`text-sm sm:text-base line-clamp-2 mb-2 ${hasUnread ? 'text-red-700 font-medium' : 'text-muted-foreground'}`}>
               {lead.leadDetails}
             </p>
+          )}
+          {assignedUser && (
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-blue-700 mb-2">
+              <UserCog className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
+              <span className="font-medium">
+                Assigned to: <span className="font-semibold">{assignedUser.email}</span>
+              </span>
+            </div>
           )}
           <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
             <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
