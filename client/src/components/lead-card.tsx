@@ -1,5 +1,5 @@
 import React from "react";
-import { Mail, Clock, Building2, Phone, MessageSquare, UserCog } from "lucide-react";
+import { Mail, Clock, Building2, Phone, MessageSquare, UserCog, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -152,13 +152,21 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, users =
               </span>
             </div>
           )}
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-            <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-            <span className="truncate">
-              Added {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })} 
-              <span className="mx-1 hidden sm:inline">•</span>
-              <span className="hidden sm:inline">{format(new Date(lead.createdAt), 'MMM d, yyyy')}</span>
-            </span>
+          <div className="flex flex-col gap-1 text-xs sm:text-sm text-muted-foreground">
+            {(lead as any).submissionDate && (
+              <div className="flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 text-blue-600" />
+                <span className="truncate">
+                  <span className="font-medium">Submitted:</span> {format(new Date((lead as any).submissionDate), 'MMM d, yyyy')}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="truncate">
+                <span className="font-medium">Created:</span> {format(new Date(lead.createdAt), 'MMM d, yyyy')}
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex flex-col items-end gap-2 flex-shrink-0">

@@ -37,6 +37,7 @@ export const leads = pgTable("leads", {
   assignedTo: text("assigned_to"), // User ID this lead is assigned to
   assignedAt: timestamp("assigned_at"), // When the lead was assigned
   assignedBy: text("assigned_by"), // Who assigned the lead (admin ID)
+  submissionDate: timestamp("submission_date"), // Date when lead was submitted (from import)
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -92,11 +93,26 @@ export const insertCompanySchema = createInsertSchema(companies).omit({
   updatedAt: true,
 });
 
-export const insertLeadSchema = createInsertSchema(leads).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+export const insertLeadSchema = createInsertSchema(leads)
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .extend({
+    submissionDate: z.union([
+      z.string().transform((val) => new Date(val)),
+      z.date(),
+      z.null(),
+      z.undefined()
+    ]).optional(),
+    assignedAt: z.union([
+      z.string().transform((val) => new Date(val)),
+      z.date(),
+      z.null(),
+      z.undefined()
+    ]).optional(),
+  });
 
 export const insertEmailSchema = createInsertSchema(emails).omit({
   id: true,

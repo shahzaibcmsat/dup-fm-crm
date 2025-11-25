@@ -24,6 +24,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Debug endpoint to check submission dates
+  app.get("/api/debug/leads", async (req, res) => {
+    try {
+      const leads = await db.execute(sql`
+        SELECT id, client_name, email, submission_date, created_at 
+        FROM leads 
+        ORDER BY created_at DESC 
+        LIMIT 5
+      `);
+      res.json(leads.rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== API ROUTES ====================
   // All data access is protected by Supabase RLS policies
   // Grammar check endpoint for email composition
@@ -151,6 +166,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/leads", async (req, res) => {
     try {
       const leads = await storage.getAllLeads();
+      // Log first lead to debug submission date
+      if (leads.length > 0) {
+        console.log('📋 First lead data:', {
+          id: leads[0].id,
+          clientName: leads[0].clientName,
+          submissionDate: leads[0].submissionDate,
+          createdAt: leads[0].createdAt
+        });
+      }
       res.json(leads);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -171,7 +195,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/leads", async (req, res) => {
     try {
-      const validatedData = insertLeadSchema.parse(req.body);
+      // Convert submissionDate string to Date object if present
+      const bodyData = { ...req.body };
+      if (bodyData.submissionDate && typeof bodyData.submissionDate === 'string') {
+        bodyData.submissionDate = new Date(bodyData.submissionDate);
+      }
+      const validatedData = insertLeadSchema.parse(bodyData);
       const lead = await storage.createLead(validatedData);
       res.status(201).json(lead);
     } catch (error: any) {
@@ -181,7 +210,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/leads/:id", async (req, res) => {
     try {
-      const validatedData = insertLeadSchema.parse(req.body);
+      // Convert submissionDate string to Date object if present
+      const bodyData = { ...req.body };
+      if (bodyData.submissionDate && typeof bodyData.submissionDate === 'string') {
+        bodyData.submissionDate = new Date(bodyData.submissionDate);
+      }
+      const validatedData = insertLeadSchema.parse(bodyData);
       const lead = await storage.updateLead(req.params.id, validatedData);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
@@ -353,7 +387,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (lastEmail) {
         console.log(`🧵 Found existing conversation - replying to thread`);
         console.log(`   Last Message ID: ${lastEmail.messageId}`);
-        console.log(`   Conversation ID: ${lastEmail.conversationId}`);
+        console.log(`   In-Reply-To: ${lastEmail.inReplyTo || 'none'}`);
+        console.log(`   Thread ID: ${lastEmail.conversationId}`);
       }
 
       // Determine the email subject - add "Re:" only if not already present
@@ -363,14 +398,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailSubject = `Re: ${baseSubject}`;
       }
 
+      // For threading:
+      // 1. inReplyTo should be the Message-ID header from the last email in the conversation
+      //    - For received emails: stored in inReplyTo field (Message-ID from their email)
+      //    - For sent emails: also stored in inReplyTo field (Message-ID from our sent email)
+      // 2. threadId should be the conversationId to maintain the Gmail thread
+      const replyToMessageId = lastEmail?.inReplyTo || undefined;
+      const threadId = lastEmail?.conversationId || undefined;
+
+      console.log(`🧵 Threading details:`);
+      console.log(`   Last Email Direction: ${lastEmail?.direction}`);
+      console.log(`   In-Reply-To Header: ${replyToMessageId || 'none'}`);
+      console.log(`   Thread ID: ${threadId || 'none'}`);
+      
+      if (!replyToMessageId) {
+        console.log(`   ⚠️ WARNING: No Message-ID header available for threading!`);
+      }
+
       // Send email using Gmail API
       const result = await sendEmail(
         lead.email, 
         emailSubject, 
         body, 
         undefined, // fromEmail (use default)
-        lastEmail?.messageId || undefined, // inReplyTo for email header threading
-        lastEmail?.conversationId || undefined // threadId for Gmail API threading
+        replyToMessageId, // inReplyTo for threading (Message-ID from headers)
+        threadId // threadId to maintain conversation
       );
       
       // Preserve conversation ID from previous emails
@@ -385,11 +437,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subject: emailSubject,
         body,
         direction: "sent",
-        messageId: result.messageId || null,
-        conversationId: result.conversationId || null,
+        messageId: result.messageId || null, // Gmail's message ID
+        conversationId: result.conversationId || null, // Gmail's thread ID
         fromEmail: fromEmail || null,
         toEmail: lead.email,
-        inReplyTo: lastEmail?.messageId || null,
+        inReplyTo: result.messageIdHeader || null, // Store the Message-ID header from our sent email
       });
 
       const email = await storage.createEmail(emailData);
@@ -484,12 +536,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Extract email info from Gmail message
         const fromAddress = getHeader(email, 'From');
         const subject = getHeader(email, 'Subject');
-        const messageId = email.id;
-        const threadId = email.threadId;
+        const gmailMessageId = email.id; // Gmail's internal ID
+        const threadId = email.threadId; // Gmail's thread ID
+        const messageIdHeader = getHeader(email, 'Message-ID'); // Actual Message-ID from headers
         
         console.log(`  📧 Processing email from: ${fromAddress}`);
         console.log(`     Subject: ${subject || '(No Subject)'}`);
-        console.log(`     Message ID: ${messageId}`);
+        console.log(`     Gmail Message ID: ${gmailMessageId}`);
+        console.log(`     Message-ID Header: ${messageIdHeader || 'none'}`);
         console.log(`     Thread ID: ${threadId || 'none'}`);
         
         if (!fromAddress) {
@@ -501,8 +555,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const emailMatch = fromAddress.match(/<(.+?)>/) || [null, fromAddress];
         const cleanFromAddress = emailMatch[1] || fromAddress;
 
-        // Check if we already have this message
-        const existing = await storage.getEmailByMessageId(messageId);
+        // Check if we already have this message (using Gmail's message ID)
+        const existing = await storage.getEmailByMessageId(gmailMessageId);
         
         if (existing) {
           console.log(`     Email already exists in database, skipping`);
@@ -544,11 +598,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             subject: subject || '(No Subject)',
             body: emailBody || '',
             direction: 'received',
-            messageId: messageId,
-            conversationId: threadId || null,
+            messageId: gmailMessageId, // Store Gmail's message ID for tracking
+            conversationId: threadId || null, // Store Gmail's thread ID
             fromEmail: cleanFromAddress,
             toEmail: process.env.EMAIL_FROM_ADDRESS || null,
-            inReplyTo: inReplyToHeader,
+            inReplyTo: messageIdHeader || null, // Store Message-ID header for proper threading
           });
 
           await storage.createEmail(emailData);
@@ -643,6 +697,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "Lead Description", "Lead Details", "Description", 
             "lead_details", "description", "LEAD DESCRIPTION", "DESCRIPTION"
           ]);
+          
+          const submissionDate = getColumnValue(row, [
+            "Submission Date", "submission_date", "SUBMISSION DATE", "Date", "date", "DATE"
+          ]);
 
           // Skip rows without name or email
           if (!clientName || !email) {
@@ -662,6 +720,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           console.log(`✅ Row ${index + 2}: ${clientName} <${email}>`);
 
+          // Parse submission date if provided  
+          let parsedSubmissionDate = null;
+          if (submissionDate) {
+            try {
+              let dateValue: Date | null = null;
+              
+              // Handle Excel serial numbers (as number OR string)
+              const serialNumber = typeof submissionDate === 'string' ? parseFloat(submissionDate) : submissionDate;
+              
+              if (typeof serialNumber === 'number' && !isNaN(serialNumber) && serialNumber > 1000) {
+                // Convert Excel serial date to JavaScript Date
+                // Excel epoch is December 30, 1899 (Excel incorrectly treats 1900 as a leap year)
+                const excelEpoch = new Date(1899, 11, 30);
+                const daysOffset = Math.floor(serialNumber);
+                dateValue = new Date(excelEpoch.getTime() + daysOffset * 24 * 60 * 60 * 1000);
+                console.log(`   Submission Date: ${dateValue.toISOString()} (from Excel serial: ${serialNumber})`);
+              } else if (typeof submissionDate === 'string') {
+                // Try to parse as regular date string
+                dateValue = new Date(submissionDate);
+                if (!isNaN(dateValue.getTime())) {
+                  console.log(`   Submission Date: ${dateValue.toISOString()} (from string)`);
+                }
+              }
+              
+              // Validate the date is reasonable (between 1990 and 2100)
+              if (dateValue && !isNaN(dateValue.getTime()) && dateValue.getFullYear() >= 1990 && dateValue.getFullYear() <= 2100) {
+                parsedSubmissionDate = dateValue;
+              } else if (dateValue) {
+                console.log(`   ⚠️ Date out of reasonable range: ${dateValue.toISOString()}`);
+              } else {
+                console.log(`   ⚠️ Could not parse date: ${submissionDate}`);
+              }
+            } catch (err) {
+              console.log(`   ⚠️ Error parsing submission date: ${submissionDate}`, err);
+            }
+          }
+
           return {
             clientName,
             email,
@@ -669,6 +764,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             subject: subject || null,
             leadDetails: leadDetails || "",
             status: "New",
+            submissionDate: parsedSubmissionDate,
           };
         })
         .filter((lead): lead is NonNullable<typeof lead> => lead !== null);
@@ -1158,6 +1254,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
       
       console.log("✅ Successfully added notes column to leads table");
+      res.json({ success: true, message: "Migration completed successfully" });
+    } catch (error: any) {
+      console.error("❌ Migration failed:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Migration endpoint to add submission_date column to leads table
+  app.post("/api/migrate/add-submission-date-to-leads", async (req, res) => {
+    try {
+      console.log("🔄 Running migration: add submission_date column to leads table");
+      
+      // Check if column already exists
+      const result = await db.execute(sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'leads' AND column_name = 'submission_date'
+      `);
+      
+      if (result.rows && result.rows.length > 0) {
+        console.log("ℹ️ submission_date column already exists");
+        return res.json({ success: true, message: "submission_date column already exists" });
+      }
+      
+      // Add submission_date column
+      await db.execute(sql`
+        ALTER TABLE leads 
+        ADD COLUMN submission_date TIMESTAMP
+      `);
+      
+      // Create index for better performance
+      await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS idx_leads_submission_date ON leads(submission_date)
+      `);
+      
+      console.log("✅ Successfully added submission_date column to leads table");
       res.json({ success: true, message: "Migration completed successfully" });
     } catch (error: any) {
       console.error("❌ Migration failed:", error);

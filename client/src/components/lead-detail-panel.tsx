@@ -316,12 +316,22 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground">Added</label>
-            <div className="flex items-center gap-2 mt-1">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <p className="text-sm">
-                {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })}
-              </p>
+            <label className="text-xs text-muted-foreground">Dates</label>
+            <div className="flex flex-col gap-2 mt-1">
+              {(lead as any).submissionDate && (
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  <p className="text-sm">
+                    <span className="font-medium text-blue-700">Submitted:</span> {format(new Date((lead as any).submissionDate), 'MMM d, yyyy')}
+                  </p>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <p className="text-sm">
+                  <span className="font-medium">Created:</span> {format(new Date(lead.createdAt), 'MMM d, yyyy')}
+                </p>
+              </div>
             </div>
           </div>
 

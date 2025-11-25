@@ -215,12 +215,14 @@ function startEmailSyncJob() {
       for (const email of newEmails) {
         const fromAddress = getHeader(email, 'From');
         const subject = getHeader(email, 'Subject');
-        const messageId = email.id;
-        const threadId = email.threadId;
+        const gmailMessageId = email.id; // Gmail's internal ID
+        const threadId = email.threadId; // Gmail's thread ID
+        const messageIdHeader = getHeader(email, 'Message-ID'); // Actual Message-ID from headers
         
         log(`  📧 Processing email from: ${fromAddress}`);
         log(`     Subject: ${subject || '(No Subject)'}`);
-        log(`     Message ID: ${messageId}`);
+        log(`     Gmail Message ID: ${gmailMessageId}`);
+        log(`     Message-ID Header: ${messageIdHeader || 'none'}`);
         log(`     Thread ID: ${threadId || 'none'}`);
         
         if (!fromAddress) {
@@ -232,8 +234,8 @@ function startEmailSyncJob() {
         const emailMatch = fromAddress.match(/<(.+?)>/) || [null, fromAddress];
         const cleanFromAddress = emailMatch[1] || fromAddress;
 
-        // Check if we already have this message
-        const existing = await storage.getEmailByMessageId(messageId);
+        // Check if we already have this message (using Gmail's message ID)
+        const existing = await storage.getEmailByMessageId(gmailMessageId);
         
         if (existing) {
           log(`     ℹ️ Email already exists in database, skipping`);
@@ -271,11 +273,11 @@ function startEmailSyncJob() {
             subject: subject || '(No Subject)',
             body: emailBody || '',
             direction: 'received',
-            messageId: messageId,
-            conversationId: threadId || null,
+            messageId: gmailMessageId, // Store Gmail's message ID for tracking
+            conversationId: threadId || null, // Store Gmail's thread ID
             fromEmail: cleanFromAddress,
             toEmail: process.env.EMAIL_FROM_ADDRESS || null,
-            inReplyTo: inReplyToHeader,
+            inReplyTo: messageIdHeader || null, // Store Message-ID header for proper threading
           });
 
           await storage.createEmail(emailData);

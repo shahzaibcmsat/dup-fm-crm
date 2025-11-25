@@ -56,13 +56,13 @@ export async function sendEmail(
   details?: any;
   messageId?: string;
   conversationId?: string;
+  messageIdHeader?: string;
 }> {
   console.log("\n📧 ========== GMAIL SEND ATTEMPT ==========");
   console.log("To:", to);
   console.log("Subject:", subject);
   console.log("From:", fromEmail || process.env.EMAIL_FROM_ADDRESS);
   if (inReplyTo) console.log("🧵 In-Reply-To:", inReplyTo);
-  if (threadId) console.log("🧵 Thread ID:", threadId);
 
   const oauth2Client = createOAuth2Client();
   if (!oauth2Client) {
@@ -121,8 +121,24 @@ export async function sendEmail(
     });
 
     console.log('✅ Email sent successfully via Gmail');
-    console.log('   Message ID:', response.data.id);
-    console.log('   Thread ID:', response.data.threadId);
+    console.log('   Gmail Message ID:', response.data.id);
+    console.log('   Gmail Thread ID:', response.data.threadId);
+
+    // Fetch the sent message to get the actual Message-ID header
+    let messageIdHeader = null;
+    if (response.data.id) {
+      try {
+        const sentMessage = await gmail.users.messages.get({
+          userId: 'me',
+          id: response.data.id,
+          format: 'full',
+        });
+        messageIdHeader = getHeader(sentMessage.data, 'Message-ID');
+        console.log('   Message-ID Header:', messageIdHeader || 'not found');
+      } catch (err) {
+        console.log('   ⚠️ Could not fetch Message-ID header');
+      }
+    }
     console.log("=========================================\n");
 
     return {
@@ -131,6 +147,7 @@ export async function sendEmail(
       details: { to, subject, from: sendFromUser },
       messageId: response.data.id || undefined,
       conversationId: response.data.threadId || undefined,
+      messageIdHeader: messageIdHeader || undefined, // Return the actual Message-ID header
     };
   } catch (error: any) {
     console.error("❌ Failed to send email via Gmail");
@@ -235,7 +252,12 @@ export function getHeader(message: any, headerName: string): string | null {
 
 // Get In-Reply-To header from message
 export function getInReplyToHeader(message: any): string | null {
-  return getHeader(message, 'In-Reply-To') || getHeader(message, 'Message-ID');
+  return getHeader(message, 'In-Reply-To');
+}
+
+// Get Message-ID header from message (for threading)
+export function getMessageIdHeader(message: any): string | null {
+  return getHeader(message, 'Message-ID');
 }
 
 // Extract email body from Gmail message

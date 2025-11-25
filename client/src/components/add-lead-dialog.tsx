@@ -21,9 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface AddLeadDialogProps {
   isOpen: boolean;
@@ -38,6 +46,7 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
   const [subject, setSubject] = useState("");
   const [leadDetails, setLeadDetails] = useState("");
   const [companyId, setCompanyId] = useState<string>("");
+  const [submissionDate, setSubmissionDate] = useState<Date | undefined>(undefined);
   const { toast } = useToast();
 
   const { data: companies = [] } = useQuery<Company[]>({
@@ -52,6 +61,7 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
       setSubject(lead.subject || "");
       setLeadDetails(lead.leadDetails || "");
       setCompanyId(lead.companyId || "");
+      setSubmissionDate((lead as any).submissionDate ? new Date((lead as any).submissionDate) : undefined);
     } else {
       setClientName("");
       setEmail("");
@@ -59,6 +69,7 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
       setSubject("");
       setLeadDetails("");
       setCompanyId("");
+      setSubmissionDate(undefined);
     }
   }, [lead, isOpen]);
 
@@ -149,6 +160,7 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
       leadDetails: leadDetails?.trim() || undefined,
       companyId: companyId || null,
       status: lead?.status || "New",
+      submissionDate: submissionDate ? submissionDate.toISOString() : null,
     };
 
     if (lead) {
@@ -227,6 +239,32 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="submissionDate">Submission Date (Optional)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="submissionDate"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !submissionDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {submissionDate ? format(submissionDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={submissionDate}
+                    onSelect={setSubmissionDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="leadDetails">Lead Details (Optional)</Label>
