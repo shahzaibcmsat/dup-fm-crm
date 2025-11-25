@@ -369,7 +369,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailSubject, 
         body, 
         undefined, // fromEmail (use default)
-        lastEmail?.messageId || undefined // inReplyTo for threading
+        lastEmail?.messageId || undefined, // inReplyTo for email header threading
+        lastEmail?.conversationId || undefined // threadId for Gmail API threading
       );
       
       // Preserve conversation ID from previous emails

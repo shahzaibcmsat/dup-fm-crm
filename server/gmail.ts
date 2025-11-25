@@ -48,7 +48,8 @@ export async function sendEmail(
   subject: string,
   body: string,
   fromEmail?: string,
-  inReplyTo?: string
+  inReplyTo?: string,
+  threadId?: string
 ): Promise<{
   success: boolean;
   message: string;
@@ -61,6 +62,7 @@ export async function sendEmail(
   console.log("Subject:", subject);
   console.log("From:", fromEmail || process.env.EMAIL_FROM_ADDRESS);
   if (inReplyTo) console.log("🧵 In-Reply-To:", inReplyTo);
+  if (threadId) console.log("🧵 Thread ID:", threadId);
 
   const oauth2Client = createOAuth2Client();
   if (!oauth2Client) {
@@ -114,7 +116,7 @@ export async function sendEmail(
       userId: 'me',
       requestBody: {
         raw: encodedMessage,
-        threadId: inReplyTo ? undefined : undefined, // Let Gmail auto-thread
+        threadId: threadId || undefined, // Use existing thread ID to maintain conversation
       },
     });
 
