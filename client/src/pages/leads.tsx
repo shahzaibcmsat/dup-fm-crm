@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Loader2, Filter, Plus, Building2, Trash2 } from "lucide-react";
+import { Search, Loader2, Filter, Plus, Building2, Trash2, UserCog } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { notificationStore } from "@/lib/notificationStore";
@@ -44,10 +44,22 @@ export default function Leads() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("all");
+  const [assignmentFilter, setAssignmentFilter] = useState("all");
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [bulkAssignUserId, setBulkAssignUserId] = useState<string>("");
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Fetch all users for assignment
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ['/api/users'],
+    queryFn: async () => {
+      const res = await fetch('/api/users', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch users');
+      return res.json();
+    },
+  });
 
   const { data: allLeads = [], isLoading } = useQuery<Lead[]>({
     queryKey: ['/api/leads'],
@@ -57,21 +69,18 @@ export default function Leads() {
     queryKey: ['/api/companies'],
   });
 
-  // Filter leads based on member permissions
+  // Filter leads based on role and assignment
   const leads = useMemo(() => {
     if (user?.role === 'admin') {
       // Admins see all leads
       return allLeads;
-    } else if (user?.role === 'member' && user?.permissions) {
-      // Members only see leads from their assigned companies
-      const allowedCompanyIds = user.permissions.companyIds || [];
-      return allLeads.filter(lead => 
-        lead.companyId && allowedCompanyIds.includes(lead.companyId)
-      );
+    } else if (user?.role === 'member') {
+      // Members only see leads assigned to them
+      return allLeads.filter(lead => lead.assignedTo === user.id);
     }
-    // Default: no leads if no permissions
+    // Default: no leads
     return [];
-  }, [allLeads, user?.role, user?.permissions]);
+  }, [allLeads, user?.role, user?.id]);
 
   const { data: emails = [] } = useQuery<Email[]>({
     queryKey: ['/api/emails', selectedLead?.id],
@@ -174,6 +183,32 @@ export default function Leads() {
     },
   });
 
+  const bulkAssignMutation = useMutation({
+    mutationFn: async ({ leadIds, userId }: { leadIds: string[]; userId: string }) => {
+      return apiRequest("POST", `/api/leads/bulk-assign-user`, { 
+        leadIds, 
+        userId: userId === "unassigned" ? null : userId,
+        assignedBy: user?.id
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Leads assigned",
+        description: `${data.count} lead(s) assigned successfully.`,
+      });
+      setSelectedLeadIds(new Set());
+      setBulkAssignUserId("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to assign leads",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleReply = (lead: Lead) => {
     setReplyingToLead(lead);
     setIsComposerOpen(true);
@@ -240,8 +275,14 @@ export default function Leads() {
       companyFilter === "all" || 
       (companyFilter === "none" && !lead.companyId) ||
       lead.companyId === companyFilter;
+
+    const matchesAssignment =
+      assignmentFilter === "all" ||
+      (assignmentFilter === "unassigned" && !lead.assignedTo) ||
+      (assignmentFilter === "mine" && lead.assignedTo === user?.id) ||
+      lead.assignedTo === assignmentFilter;
     
-    return matchesSearch && matchesStatus && matchesCompany;
+    return matchesSearch && matchesStatus && matchesCompany && matchesAssignment;
   });
 
   const allFilteredSelected = filteredLeads.length > 0 && selectedLeadIds.size === filteredLeads.length;
@@ -257,15 +298,49 @@ export default function Leads() {
           </p>
         </div>
         <div className="flex gap-2">
-          {selectedLeadIds.size > 0 && (
-            <Button
-              variant="destructive"
-              onClick={handleDeleteSelected}
-              disabled={bulkDeleteMutation.isPending}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete {selectedLeadIds.size} Lead{selectedLeadIds.size !== 1 ? 's' : ''}
-            </Button>
+          {selectedLeadIds.size > 0 && user?.role === 'admin' && (
+            <>
+              <Select
+                value={bulkAssignUserId}
+                onValueChange={(value) => {
+                  setBulkAssignUserId(value);
+                  if (value && selectedLeadIds.size > 0) {
+                    bulkAssignMutation.mutate({
+                      leadIds: Array.from(selectedLeadIds),
+                      userId: value
+                    });
+                  }
+                }}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Assign to..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                      <span>Unassigned</span>
+                    </div>
+                  </SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      <div className="flex items-center gap-2">
+                        <UserCog className="w-3 h-3 text-blue-500" />
+                        <span>{u.email}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteSelected}
+                disabled={bulkDeleteMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete {selectedLeadIds.size}
+              </Button>
+            </>
           )}
           <Button 
             onClick={() => {
@@ -325,6 +400,36 @@ export default function Leads() {
               <SelectItem value="Closed">Closed</SelectItem>
             </SelectContent>
           </Select>
+          {user?.role === 'admin' && (
+            <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Assignments</SelectItem>
+                <SelectItem value="unassigned">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                    <span>Unassigned</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="mine">
+                  <div className="flex items-center gap-2">
+                    <UserCog className="w-3 h-3 text-green-500" />
+                    <span>My Leads</span>
+                  </div>
+                </SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    <div className="flex items-center gap-2">
+                      <UserCog className="w-3 h-3 text-blue-500" />
+                      <span>{u.email}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 

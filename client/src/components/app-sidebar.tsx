@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Home, Upload, Settings, Database, Building2, Plus, Package } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { Company } from "@shared/schema";
+import { Company, Lead } from "@shared/schema";
 import { AddCompanyDialog } from "@/components/add-company-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -55,19 +55,26 @@ export function AppSidebar() {
     queryKey: ['/api/companies'],
   });
 
-  // Filter companies based on member permissions
+  const { data: leads = [] } = useQuery<Lead[]>({
+    queryKey: ['/api/leads'],
+  });
+
+  // Filter companies based on assigned leads
   const filteredCompanies = useMemo(() => {
     if (userRole === "admin") {
       // Admins see all companies
       return companies;
-    } else if (userRole === "member" && user?.permissions) {
-      // Members see only their assigned companies
-      const allowedCompanyIds = user.permissions.companyIds || [];
-      return companies.filter(company => allowedCompanyIds.includes(company.id));
+    } else if (userRole === "member" && user?.id) {
+      // Members see only companies where they have assigned leads
+      const myLeads = leads.filter(lead => lead.assignedTo === user.id);
+      const companyIdsWithAssignedLeads = new Set(
+        myLeads.map(lead => lead.companyId).filter(Boolean)
+      );
+      return companies.filter(company => companyIdsWithAssignedLeads.has(company.id));
     }
-    // If no permissions set yet, show no companies
+    // If no user, show no companies
     return [];
-  }, [companies, userRole, user?.permissions]);
+  }, [companies, leads, userRole, user?.id]);
 
   // Filter menu items based on user role
   const filteredMenuItems = menuItems.filter(item => {
@@ -82,11 +89,12 @@ export function AppSidebar() {
   const showInventory = useMemo(() => {
     if (userRole === "admin") {
       return true;
-    } else if (userRole === "member" && user?.permissions) {
-      return user.permissions.canSeeInventory;
+    } else if (userRole === "member") {
+      // Check user metadata for canSeeInventory flag
+      return user?.canSeeInventory === true;
     }
     return false;
-  }, [userRole, user?.permissions]);
+  }, [userRole, user?.canSeeInventory]);
 
   // Show companies section for all users
   const showCompanies = true;

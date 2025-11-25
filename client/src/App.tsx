@@ -16,7 +16,7 @@ import Leads from "@/pages/leads";
 import Import from "@/pages/import";
 import Settings from "@/pages/settings";
 import CompanyLeads from "@/pages/company-leads";
-import Inventory from "@/pages/inventory";
+const Inventory = React.lazy(() => import("@/pages/inventory"));
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 
@@ -27,7 +27,20 @@ function Router() {
       <Route path="/leads" component={Leads} />
       <Route path="/companies/:id" component={CompanyLeads} />
       <Route path="/import" component={Import} />
-      <Route path="/inventory" component={Inventory} />
+      <Route path="/inventory">
+        {() => (
+          <React.Suspense fallback={
+            <div className="flex items-center justify-center p-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading Inventory...</p>
+              </div>
+            </div>
+          }>
+            <Inventory />
+          </React.Suspense>
+        )}
+      </Route>
       <Route path="/settings" component={Settings} />
       <Route path="/login" component={Login} />
       <Route component={NotFound} />

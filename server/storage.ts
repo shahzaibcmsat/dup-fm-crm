@@ -1,4 +1,4 @@
-import { leads, emails, companies, inventory, memberPermissions, notifications, type Lead, type InsertLead, type Email, type InsertEmail, type Company, type InsertCompany, type Inventory, type InsertInventory, type MemberPermission, type InsertMemberPermission, type Notification, type InsertNotification } from "@shared/schema";
+import { leads, emails, companies, inventory, notifications, type Lead, type InsertLead, type Email, type InsertEmail, type Company, type InsertCompany, type Inventory, type InsertInventory, type Notification, type InsertNotification } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, inArray } from "drizzle-orm";
 import { debug, info, error as logError } from './vite';
@@ -34,10 +34,6 @@ export interface IStorage {
   deleteInventoryItem(id: string): Promise<boolean>;
   deleteInventoryItems(ids: string[]): Promise<number>;
   createInventoryItems(items: InsertInventory[]): Promise<Inventory[]>;
-  getMemberPermissions(userId: string): Promise<MemberPermission | undefined>;
-  getAllMemberPermissions(): Promise<MemberPermission[]>;
-  upsertMemberPermissions(permissions: InsertMemberPermission): Promise<MemberPermission>;
-  deleteMemberPermissions(userId: string): Promise<boolean>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   getRecentNotifications(since?: string): Promise<Notification[]>;
   dismissNotification(id: string): Promise<boolean>;
@@ -144,6 +140,20 @@ export class DatabaseStorage implements IStorage {
     const [lead] = await db
       .update(leads)
       .set({ notes, updatedAt: new Date() })
+      .where(eq(leads.id, id))
+      .returning();
+    return lead || undefined;
+  }
+
+  async assignLead(id: string, userId: string | null, assignedBy?: string): Promise<Lead | undefined> {
+    const [lead] = await db
+      .update(leads)
+      .set({ 
+        assignedTo: userId,
+        assignedAt: userId ? new Date() : null,
+        assignedBy: userId ? assignedBy || null : null,
+        updatedAt: new Date() 
+      })
       .where(eq(leads.id, id))
       .returning();
     return lead || undefined;
@@ -281,52 +291,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Member Permissions
-  async getMemberPermissions(userId: string): Promise<MemberPermission | undefined> {
-    const [permission] = await db
-      .select()
-      .from(memberPermissions)
-      .where(eq(memberPermissions.userId, userId));
-    return permission || undefined;
-  }
-
-  async getAllMemberPermissions(): Promise<MemberPermission[]> {
-    return await db.select().from(memberPermissions);
-  }
-
-  async upsertMemberPermissions(insertPermission: InsertMemberPermission): Promise<MemberPermission> {
-    // Check if permissions already exist
-    const existing = await this.getMemberPermissions(insertPermission.userId);
-    
-    if (existing) {
-      // Update existing permissions
-      const [updated] = await db
-        .update(memberPermissions)
-        .set({
-          companyIds: insertPermission.companyIds,
-          canSeeInventory: insertPermission.canSeeInventory,
-          updatedAt: new Date(),
-        })
-        .where(eq(memberPermissions.userId, insertPermission.userId))
-        .returning();
-      return updated;
-    } else {
-      // Create new permissions
-      const [created] = await db
-        .insert(memberPermissions)
-        .values(insertPermission)
-        .returning();
-      return created;
-    }
-  }
-
-  async deleteMemberPermissions(userId: string): Promise<boolean> {
-    const result = await db
-      .delete(memberPermissions)
-      .where(eq(memberPermissions.userId, userId))
-      .returning();
-    return result.length > 0;
-  }
-
   // Notification methods
   async createNotification(notification: InsertNotification): Promise<Notification> {
     const [created] = await db

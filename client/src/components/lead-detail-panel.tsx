@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Mail, Clock, User, Edit, ChevronDown, ChevronUp, Phone, MessageSquare, Save, FileText } from "lucide-react";
+import { X, Mail, Clock, User, Edit, ChevronDown, ChevronUp, Phone, MessageSquare, Save, FileText, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -14,6 +14,9 @@ import {
 import { Lead, Email } from "@shared/schema";
 import { formatDistanceToNow, format } from "date-fns";
 import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 interface LeadDetailPanelProps {
   lead: Lead | null;
@@ -84,6 +87,45 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
   const [notes, setNotes] = useState(lead?.notes || "");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const { toast } = useToast();
+
+  // Fetch all users for assignment dropdown
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ['/api/users'],
+    queryFn: async () => {
+      const res = await fetch('/api/users');
+      if (!res.ok) throw new Error('Failed to fetch users');
+      return res.json();
+    },
+  });
+
+  // Assignment mutation
+  const assignMutation = useMutation({
+    mutationFn: async ({ leadId, userId, assignedBy }: { leadId: string; userId: string | null; assignedBy?: string }) => {
+      const res = await fetch(`/api/leads/${leadId}/assign`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId, assignedBy }),
+      });
+      if (!res.ok) throw new Error('Failed to assign lead');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Lead assigned",
+        description: "Lead assignment updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Assignment failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Sync notes when lead changes
   useEffect(() => {
@@ -231,6 +273,46 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-3 block font-semibold uppercase tracking-wide">Assigned To</label>
+            <Select
+              value={lead.assignedTo || "unassigned"}
+              onValueChange={(value) => {
+                const userId = value === "unassigned" ? null : value;
+                assignMutation.mutate({ leadId: lead.id, userId });
+              }}
+              disabled={assignMutation.isPending}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                    <span className="font-medium text-gray-500">Unassigned</span>
+                  </div>
+                </SelectItem>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    <div className="flex items-center gap-2">
+                      <UserCog className="w-3 h-3 text-blue-500" />
+                      <span className="font-medium">{user.email}</span>
+                      {user.role === 'admin' && (
+                        <Badge variant="outline" className="text-xs">Admin</Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {lead.assignedAt && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Assigned {formatDistanceToNow(new Date(lead.assignedAt), { addSuffix: true })}
+              </p>
+            )}
           </div>
 
           <div>

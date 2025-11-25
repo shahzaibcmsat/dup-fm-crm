@@ -12,6 +12,7 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("user"), // 'admin' or 'user'
   isActive: boolean("is_active").notNull().default(true),
+  canSeeInventory: boolean("can_see_inventory").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -33,6 +34,9 @@ export const leads = pgTable("leads", {
   leadDetails: text("lead_details"),
   notes: text("notes"), // Internal notes/comments for the lead
   status: text("status").notNull().default("New"),
+  assignedTo: text("assigned_to"), // User ID this lead is assigned to
+  assignedAt: timestamp("assigned_at"), // When the lead was assigned
+  assignedBy: text("assigned_by"), // Who assigned the lead (admin ID)
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -120,16 +124,6 @@ export const notifications = pgTable("notifications", {
   dismissedAt: timestamp("dismissed_at"),
 });
 
-// Member permissions table for granular access control
-export const memberPermissions = pgTable("member_permissions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(), // References auth.users(id) in Supabase
-  companyIds: text("company_ids").array().notNull().default(sql`'{}'::text[]`), // Array of company IDs
-  canSeeInventory: boolean("can_see_inventory").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -142,12 +136,6 @@ export const loginSchema = z.object({
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications);
-
-export const insertMemberPermissionSchema = createInsertSchema(memberPermissions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -162,5 +150,3 @@ export type InsertInventory = z.infer<typeof insertInventorySchema>;
 export type Inventory = typeof inventory.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
-export type InsertMemberPermission = z.infer<typeof insertMemberPermissionSchema>;
-export type MemberPermission = typeof memberPermissions.$inferSelect;

@@ -17,6 +17,7 @@ interface User {
   id: string;
   email: string;
   role: string;
+  canSeeInventory?: boolean;
   created_at: string;
   email_confirmed_at?: string;
 }
@@ -90,6 +91,38 @@ export function UserManagement() {
       toast({
         title: "User deleted",
         description: "User has been removed successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Toggle inventory access mutation
+  const toggleInventoryMutation = useMutation({
+    mutationFn: async ({ userId, canSeeInventory }: { userId: string; canSeeInventory: boolean }) => {
+      const res = await fetch(`/api/users/${userId}/inventory-access`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ canSeeInventory }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to update inventory access');
+      }
+      
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: "Access updated",
+        description: "Inventory access updated successfully",
       });
     },
     onError: (error: Error) => {
@@ -261,6 +294,7 @@ export function UserManagement() {
                 <TableRow>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Inventory Access</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -279,6 +313,18 @@ export function UserManagement() {
                       <Badge variant={user.role === "admin" ? "default" : "secondary"}>
                         {user.role === "admin" ? "Admin" : "Member"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={(user as any).canSeeInventory || false}
+                        onCheckedChange={(checked) => {
+                          toggleInventoryMutation.mutate({
+                            userId: user.id,
+                            canSeeInventory: checked
+                          });
+                        }}
+                        disabled={user.role === "admin" || toggleInventoryMutation.isPending}
+                      />
                     </TableCell>
                     <TableCell>
                       {user.email_confirmed_at ? (

@@ -7,7 +7,6 @@ import { Mail, CheckCircle2, Server, BellOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { UserManagement } from "@/components/user-management";
-import { PermissionManagement } from "@/components/permission-management";
 import { useAuth } from "@/hooks/use-auth";
 
 interface ConfigData {
@@ -117,9 +116,6 @@ export default function Settings() {
         <div className="space-y-4 sm:space-y-6">
           {/* User Management */}
           <UserManagement />
-          
-          {/* Member Permissions */}
-          <PermissionManagement />
 
           {/* Connected Status */}
           <Card>

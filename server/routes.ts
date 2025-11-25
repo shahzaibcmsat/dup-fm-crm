@@ -282,6 +282,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Assign lead to user
+  app.patch("/api/leads/:id/assign", async (req, res) => {
+    try {
+      const { userId, assignedBy } = req.body;
+      console.log("👤 Assign lead request:", { leadId: req.params.id, userId, assignedBy });
+      
+      const result = await storage.assignLead(req.params.id, userId, assignedBy);
+      console.log("✅ Lead assigned:", result);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("❌ Error assigning lead:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Bulk assign leads to user
+  app.post("/api/leads/bulk-assign-user", async (req, res) => {
+    try {
+      const { leadIds, userId, assignedBy } = req.body;
+      console.log("👥 Bulk assign leads request:", { leadIds, userId, assignedBy });
+      
+      if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+        return res.status(400).json({ message: "Lead IDs array is required" });
+      }
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+      
+      const updatePromises = leadIds.map(async (leadId) => {
+        console.log(`  Assigning lead ${leadId} to user ${userId}`);
+        return await storage.assignLead(leadId, userId, assignedBy);
+      });
+      
+      const results = await Promise.all(updatePromises);
+      console.log("✅ All leads assigned:", results.length);
+      
+      res.json({ 
+        message: `${leadIds.length} lead(s) assigned to user successfully`,
+        count: leadIds.length
+      });
+    } catch (error: any) {
+      console.error("❌ Error bulk assigning leads:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/leads/:id/send-email", async (req, res) => {
     try {
       const lead = await storage.getLead(req.params.id);
@@ -1138,6 +1186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         email: user.email,
         role: user.user_metadata?.role || 'member',
+        canSeeInventory: user.user_metadata?.canSeeInventory || false,
         created_at: user.created_at,
         email_confirmed_at: user.email_confirmed_at,
       }));
@@ -1224,66 +1273,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ==================== MEMBER PERMISSIONS API ====================
-  // Get permissions for a specific user
-  app.get("/api/permissions/:userId", async (req, res) => {
+  // Update user inventory permission (admin only)
+  app.patch("/api/users/:id/inventory-access", async (req, res) => {
     try {
-      const { userId } = req.params;
-      const permissions = await storage.getMemberPermissions(userId);
-      res.json(permissions);
-    } catch (error: any) {
-      console.error("Failed to fetch permissions:", error);
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // Get all permissions (admin only)
-  app.get("/api/permissions", async (req, res) => {
-    try {
-      const permissions = await storage.getAllMemberPermissions();
-      res.json(permissions);
-    } catch (error: any) {
-      console.error("Failed to fetch all permissions:", error);
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // Update or create permissions for a user (admin only)
-  app.put("/api/permissions/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { companyIds, canSeeInventory } = req.body;
+      const { id } = req.params;
+      const { canSeeInventory } = req.body;
       
-      if (!Array.isArray(companyIds)) {
-        return res.status(400).json({ message: "companyIds must be an array" });
+      if (typeof canSeeInventory !== 'boolean') {
+        return res.status(400).json({ message: "canSeeInventory must be a boolean" });
       }
       
-      const permissions = await storage.upsertMemberPermissions({
-        userId,
-        companyIds,
-        canSeeInventory: canSeeInventory ?? false
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      
+      if (!supabaseServiceKey) {
+        return res.status(500).json({ message: "Supabase service key not configured" });
+      }
+      
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      
+      // Update user metadata
+      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(id, {
+        user_metadata: {
+          canSeeInventory
+        }
       });
       
-      res.json({ success: true, permissions });
-    } catch (error: any) {
-      console.error("Failed to update permissions:", error);
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // Delete permissions for a user (admin only)
-  app.delete("/api/permissions/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const success = await storage.deleteMemberPermissions(userId);
+      if (error) throw error;
       
-      if (!success) {
-        return res.status(404).json({ message: "Permissions not found" });
-      }
-      
-      res.json({ success: true, message: "Permissions deleted successfully" });
+      res.json({ 
+        success: true, 
+        message: "Inventory access updated successfully",
+        canSeeInventory
+      });
     } catch (error: any) {
-      console.error("Failed to delete permissions:", error);
+      console.error("Failed to update inventory access:", error);
       res.status(500).json({ message: error.message });
     }
   });
