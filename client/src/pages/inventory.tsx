@@ -44,7 +44,7 @@ export default function InventoryPage() {
   const [gridApi, setGridApi] = useState<GridApi | null>(null);
 
   // Check if user has access to inventory
-  const hasInventoryAccess = user?.role === "admin" || (user?.role === "member" && user?.permissions?.canSeeInventory);
+  const hasInventoryAccess = user?.role === "admin" || (user?.role === "member" && user?.canSeeInventory);
 
   if (!hasInventoryAccess) {
     return (

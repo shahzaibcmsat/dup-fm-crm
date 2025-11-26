@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/notification-bell";
 import { useEmailNotifications } from "@/hooks/use-email-notifications";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import Leads from "@/pages/leads";
 import Import from "@/pages/import";
@@ -62,7 +62,7 @@ function AuthenticatedApp() {
     navigate(`/leads?selected=${leadId}`);
   };
 
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleLogout = async () => {
     await logout();
@@ -84,6 +84,12 @@ function AuthenticatedApp() {
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                   <NotificationBell onNotificationClick={handleNotificationClick} />
+                  {user && (
+                    <div className="hidden md:flex items-center gap-2 text-white/90 text-sm px-3 py-1.5 bg-white/10 rounded-md">
+                      <User className="h-4 w-4" />
+                      <span className="font-medium">{user.email}</span>
+                    </div>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
