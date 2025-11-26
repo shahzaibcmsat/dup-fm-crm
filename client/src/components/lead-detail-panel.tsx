@@ -173,7 +173,7 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
 
   return (
     <div className="fixed right-0 top-0 h-screen w-full sm:w-[500px] md:w-[550px] lg:w-[600px] bg-card border-l shadow-xl overflow-y-auto z-50" data-testid="panel-lead-detail">
-      <div className="sticky top-0 bg-card border-b p-4 sm:p-5 flex items-center justify-between">
+      <div className="sticky top-0 bg-card border-b p-4 sm:p-5 flex items-center justify-between z-10 shadow-sm">
         <h2 className="text-xl sm:text-2xl font-semibold">Lead Details</h2>
         <div className="flex gap-2">
           {onEdit && (
