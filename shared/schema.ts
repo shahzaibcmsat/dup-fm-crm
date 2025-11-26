@@ -50,7 +50,8 @@ export const emails = pgTable("emails", {
   direction: text("direction").notNull(), // 'sent' or 'received'
   messageId: text("message_id"), // Microsoft Graph Message ID for tracking
   conversationId: text("conversation_id"), // Thread ID for grouping
-  inReplyTo: text("in_reply_to"), // Parent message ID
+  inReplyTo: text("in_reply_to"), // Parent message ID (Message-ID header)
+  references: text("references"), // Full chain of Message-IDs for threading
   fromEmail: text("from_email"),
   toEmail: text("to_email"),
   sentAt: timestamp("sent_at").notNull().defaultNow(),

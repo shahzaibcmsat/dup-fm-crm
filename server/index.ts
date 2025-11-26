@@ -267,6 +267,7 @@ function startEmailSyncJob() {
           log(`     💾 Saving new email to database...`);
           
           const emailBody = getEmailBody(email);
+          const referencesHeader = getHeader(email, 'References'); // Get full References chain
           
           const emailData = insertEmailSchema.parse({
             leadId: lead.id,
@@ -278,6 +279,7 @@ function startEmailSyncJob() {
             fromEmail: cleanFromAddress,
             toEmail: process.env.EMAIL_FROM_ADDRESS || null,
             inReplyTo: messageIdHeader || null, // Store Message-ID header for proper threading
+            references: referencesHeader || null, // Store full References chain for threading
           });
 
           await storage.createEmail(emailData);

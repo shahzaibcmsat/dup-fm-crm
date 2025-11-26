@@ -49,7 +49,8 @@ export async function sendEmail(
   body: string,
   fromEmail?: string,
   inReplyTo?: string,
-  threadId?: string
+  threadId?: string,
+  references?: string
 ): Promise<{
   success: boolean;
   message: string;
@@ -93,10 +94,19 @@ export async function sendEmail(
       'MIME-Version: 1.0',
     ];
 
-    // Add In-Reply-To and References headers for threading
+    // Add In-Reply-To and References headers for proper threading across all email clients
     if (inReplyTo) {
       messageParts.push(`In-Reply-To: ${inReplyTo}`);
-      messageParts.push(`References: ${inReplyTo}`);
+      
+      // Build References chain: include all previous Message-IDs
+      // Format: oldest-message-id newest-message-id current-message-id
+      if (references) {
+        // References already contains the chain, append current inReplyTo
+        messageParts.push(`References: ${references} ${inReplyTo}`);
+      } else {
+        // No previous chain, just use inReplyTo
+        messageParts.push(`References: ${inReplyTo}`);
+      }
     }
 
     messageParts.push('');

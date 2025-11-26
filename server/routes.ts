@@ -403,12 +403,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //    - For received emails: stored in inReplyTo field (Message-ID from their email)
       //    - For sent emails: also stored in inReplyTo field (Message-ID from our sent email)
       // 2. threadId should be the conversationId to maintain the Gmail thread
+      // 3. references should contain the full chain of Message-IDs for proper threading in all email clients
       const replyToMessageId = lastEmail?.inReplyTo || undefined;
       const threadId = lastEmail?.conversationId || undefined;
+      
+      // Build References chain for proper threading across all email clients (Gmail, Outlook, Roundcube, etc.)
+      let referencesChain = lastEmail?.references || '';
+      if (replyToMessageId) {
+        // If there's already a references chain, append the current inReplyTo
+        if (referencesChain && !referencesChain.includes(replyToMessageId)) {
+          referencesChain = `${referencesChain} ${replyToMessageId}`;
+        } else if (!referencesChain) {
+          // Start a new chain with just the inReplyTo
+          referencesChain = replyToMessageId;
+        }
+      }
 
       console.log(`🧵 Threading details:`);
       console.log(`   Last Email Direction: ${lastEmail?.direction}`);
       console.log(`   In-Reply-To Header: ${replyToMessageId || 'none'}`);
+      console.log(`   References Chain: ${referencesChain || 'none'}`);
       console.log(`   Thread ID: ${threadId || 'none'}`);
       
       if (!replyToMessageId) {
@@ -422,7 +436,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body, 
         undefined, // fromEmail (use default)
         replyToMessageId, // inReplyTo for threading (Message-ID from headers)
-        threadId // threadId to maintain conversation
+        threadId, // threadId to maintain conversation (Gmail-specific)
+        referencesChain || undefined // references chain for universal email threading
       );
       
       // Preserve conversation ID from previous emails
@@ -431,6 +446,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const fromEmail = process.env.EMAIL_FROM_ADDRESS;
+
+      // Build the new references chain including our new message
+      let newReferencesChain = referencesChain || '';
+      if (result.messageIdHeader) {
+        if (newReferencesChain && !newReferencesChain.includes(result.messageIdHeader)) {
+          newReferencesChain = `${newReferencesChain} ${result.messageIdHeader}`;
+        } else if (!newReferencesChain) {
+          newReferencesChain = result.messageIdHeader;
+        }
+      }
 
       const emailData = insertEmailSchema.parse({
         leadId: lead.id,
@@ -442,6 +467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fromEmail: fromEmail || null,
         toEmail: lead.email,
         inReplyTo: result.messageIdHeader || null, // Store the Message-ID header from our sent email
+        references: newReferencesChain || null, // Store the full References chain
       });
 
       const email = await storage.createEmail(emailData);
