@@ -1426,9 +1426,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
       
-      // Update user metadata
+      // Get current user to preserve existing metadata
+      const { data: currentUser } = await supabaseAdmin.auth.admin.getUserById(id);
+      
+      // Update user metadata while preserving role
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(id, {
         user_metadata: {
+          ...currentUser?.user?.user_metadata,
           canSeeInventory
         }
       });

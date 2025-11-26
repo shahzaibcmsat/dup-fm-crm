@@ -1,9 +1,12 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import viteCompression from 'vite-plugin-compression';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  
+  return {
   plugins: [
     react(),
     // Gzip compression for faster downloads
@@ -74,4 +77,9 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
+  define: {
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
+  },
+};
 });

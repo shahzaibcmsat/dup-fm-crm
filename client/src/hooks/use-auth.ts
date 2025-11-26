@@ -15,6 +15,7 @@ interface User {
   id: string;
   email: string;
   role: 'admin' | 'member';
+  canSeeInventory?: boolean;
   permissions?: MemberPermission;
 }
 
@@ -42,11 +43,13 @@ export const useAuth = create<AuthState>((set: any) => ({
           id: session.user.id,
           email: session.user.email || '',
           role: (session.user.user_metadata?.role || 'member') as 'admin' | 'member',
+          canSeeInventory: session.user.user_metadata?.canSeeInventory || false,
         };
         
         console.log('👤 User authenticated:', {
           email: user.email,
           role: user.role,
+          canSeeInventory: user.canSeeInventory,
           metadata: session.user.user_metadata
         });
         
@@ -103,11 +106,13 @@ export const useAuth = create<AuthState>((set: any) => ({
           id: data.user.id,
           email: data.user.email || '',
           role: (data.user.user_metadata?.role || 'member') as 'admin' | 'member',
+          canSeeInventory: data.user.user_metadata?.canSeeInventory || false,
         };
         
         console.log('✅ Login successful:', {
           email: user.email,
           role: user.role,
+          canSeeInventory: user.canSeeInventory,
           metadata: data.user.user_metadata
         });
         
