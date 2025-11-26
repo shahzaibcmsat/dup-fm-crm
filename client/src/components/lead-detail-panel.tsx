@@ -172,51 +172,51 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
   };
 
   return (
-    <div className="fixed right-0 top-0 h-screen w-96 bg-card border-l shadow-xl overflow-y-auto z-50" data-testid="panel-lead-detail">
-      <div className="sticky top-0 bg-card border-b p-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Lead Details</h2>
+    <div className="fixed right-0 top-0 h-screen w-full sm:w-[500px] md:w-[550px] lg:w-[600px] bg-card border-l shadow-xl overflow-y-auto z-50" data-testid="panel-lead-detail">
+      <div className="sticky top-0 bg-card border-b p-4 sm:p-5 flex items-center justify-between">
+        <h2 className="text-xl sm:text-2xl font-semibold">Lead Details</h2>
         <div className="flex gap-2">
           {onEdit && (
-            <Button variant="ghost" size="icon" onClick={() => onEdit(lead)} title="Edit Lead">
-              <Edit className="w-4 h-4" />
+            <Button variant="ghost" size="icon" onClick={() => onEdit(lead)} title="Edit Lead" className="h-10 w-10">
+              <Edit className="w-5 h-5" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={onClose} data-testid="button-close-panel">
-            <X className="w-4 h-4" />
+          <Button variant="ghost" size="icon" onClick={onClose} data-testid="button-close-panel" className="h-10 w-10">
+            <X className="w-5 h-5" />
           </Button>
         </div>
       </div>
 
-      <div className="p-4 space-y-6">
-        <div className="space-y-4">
+      <div className="p-4 sm:p-6 space-y-6 sm:space-y-7">
+        <div className="space-y-5 sm:space-y-6">
           <div>
-            <label className="text-xs text-muted-foreground">Client Name</label>
-            <div className="flex items-center gap-2 mt-1">
-              <User className="w-4 h-4 text-muted-foreground" />
-              <p className="font-medium" data-testid="text-detail-name">{lead.clientName}</p>
+            <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Client Name</label>
+            <div className="flex items-center gap-3 mt-2">
+              <User className="w-5 h-5 text-muted-foreground" />
+              <p className="text-lg font-semibold" data-testid="text-detail-name">{lead.clientName}</p>
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground mb-3 block font-semibold uppercase tracking-wide">Contact Information</label>
-            <div className="flex flex-wrap items-center gap-3">
+            <label className="text-sm font-medium text-muted-foreground mb-3 block uppercase tracking-wide">Contact Information</label>
+            <div className="flex flex-col gap-3">
               {lead.phone && (
-                <span className="group relative inline-flex items-center gap-2.5 bg-white border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-400">
+                <span className="group relative inline-flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-5 py-3.5 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-emerald-400">
                   <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 to-green-400/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="relative flex items-center justify-center w-9 h-9 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg shadow-sm">
-                    <Phone className="w-4.5 h-4.5 text-white" />
+                  <div className="relative flex items-center justify-center w-11 h-11 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg shadow-sm">
+                    <Phone className="w-5 h-5 text-white" />
                   </div>
-                  <span className="relative font-semibold text-gray-700 group-hover:text-emerald-700 transition-colors text-sm">
+                  <span className="relative font-semibold text-gray-700 group-hover:text-emerald-700 transition-colors text-base">
                     {lead.phone}
                   </span>
                 </span>
               )}
-              <span className="group relative inline-flex items-center gap-2.5 bg-white border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-blue-400">
+              <span className="group relative inline-flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-5 py-3.5 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-400">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-indigo-400/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="relative flex items-center justify-center w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-sm">
-                  <Mail className="w-4.5 h-4.5 text-white" />
+                <div className="relative flex items-center justify-center w-11 h-11 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-sm">
+                  <Mail className="w-5 h-5 text-white" />
                 </div>
-                <span className="relative font-semibold text-gray-700 group-hover:text-blue-700 transition-colors text-sm" data-testid="text-detail-email">
+                <span className="relative font-semibold text-gray-700 group-hover:text-blue-700 transition-colors text-base break-all" data-testid="text-detail-email">
                   {lead.email}
                 </span>
               </span>
@@ -225,25 +225,25 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
 
           {lead.subject && (
             <div>
-              <label className="text-xs text-muted-foreground">Subject</label>
-              <div className="flex items-center gap-2 mt-1">
-                <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                <p className="text-sm font-medium">{lead.subject}</p>
+              <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Subject</label>
+              <div className="flex items-center gap-3 mt-2">
+                <MessageSquare className="w-5 h-5 text-muted-foreground" />
+                <p className="text-base font-medium">{lead.subject}</p>
               </div>
             </div>
           )}
 
           {lead.leadDetails && (
             <div>
-              <label className="text-xs text-muted-foreground">Lead Details</label>
-              <p className="text-sm mt-1" data-testid="text-detail-description">{lead.leadDetails}</p>
+              <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Lead Details</label>
+              <p className="text-base mt-2 leading-relaxed" data-testid="text-detail-description">{lead.leadDetails}</p>
             </div>
           )}
 
           <div>
-            <label className="text-xs text-muted-foreground mb-3 block font-semibold uppercase tracking-wide">Status</label>
+            <label className="text-sm font-medium text-muted-foreground mb-3 block uppercase tracking-wide">Status</label>
             <div className="relative">
-              <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-5 py-3 rounded-xl font-bold text-sm shadow-lg ${statusConfig[lead.status]?.ring || ''} transition-all hover:shadow-xl text-center`}>
+              <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-6 py-4 rounded-xl font-bold text-base shadow-lg ${statusConfig[lead.status]?.ring || ''} transition-all hover:shadow-xl text-center`}>
                 {lead.status}
               </div>
               <Select
@@ -276,7 +276,7 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground mb-3 block font-semibold uppercase tracking-wide">Assigned To</label>
+            <label className="text-sm font-medium text-muted-foreground mb-3 block uppercase tracking-wide">Assigned To</label>
             <Select
               value={lead.assignedTo || "unassigned"}
               onValueChange={(value) => {
@@ -285,7 +285,7 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
               }}
               disabled={assignMutation.isPending}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full h-12 text-base">
                 <SelectValue placeholder="Unassigned" />
               </SelectTrigger>
               <SelectContent>
@@ -316,20 +316,20 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground">Dates</label>
-            <div className="flex flex-col gap-2 mt-1">
+            <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Dates</label>
+            <div className="flex flex-col gap-3 mt-2">
               {(lead as any).submissionDate && (
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <p className="text-sm">
-                    <span className="font-medium text-blue-700">Submitted:</span> {format(new Date((lead as any).submissionDate), 'MMM d, yyyy')}
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <p className="text-base">
+                    <span className="font-semibold text-blue-700">Submitted:</span> {format(new Date((lead as any).submissionDate), 'MMM d, yyyy')}
                   </p>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <p className="text-sm">
-                  <span className="font-medium">Created:</span> {format(new Date(lead.createdAt), 'MMM d, yyyy')}
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-muted-foreground" />
+                <p className="text-base">
+                  <span className="font-semibold">Created:</span> {format(new Date(lead.createdAt), 'MMM d, yyyy')}
                 </p>
               </div>
             </div>
@@ -338,9 +338,9 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
           <Separator />
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wide flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <FileText className="w-5 h-5" />
                 Notes / Comments
               </label>
               {!isEditingNotes && (
@@ -348,21 +348,21 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsEditingNotes(true)}
-                  className="h-8"
+                  className="h-10"
                 >
                   <Edit className="w-4 h-4 mr-1" />
                   Edit
                 </Button>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {isEditingNotes ? (
                 <>
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Add internal notes or comments about this lead..."
-                    className="min-h-[120px] text-sm resize-none"
+                    className="min-h-[140px] text-base resize-none"
                     data-testid="textarea-notes"
                     autoFocus
                   />
@@ -370,10 +370,10 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
                     <Button
                       onClick={handleSaveNotes}
                       disabled={isSavingNotes}
-                      className="flex-1 bg-fmd-green hover:bg-fmd-green/90"
+                      className="flex-1 bg-fmd-green hover:bg-fmd-green/90 h-11 text-base"
                       size="sm"
                     >
-                      <Save className="w-4 h-4 mr-2" />
+                      <Save className="w-5 h-5 mr-2" />
                       {isSavingNotes ? "Saving..." : "Save Notes"}
                     </Button>
                     <Button
@@ -381,6 +381,7 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
                       disabled={isSavingNotes}
                       variant="outline"
                       size="sm"
+                      className="h-11 text-base"
                     >
                       Cancel
                     </Button>
@@ -388,7 +389,7 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
                 </>
               ) : (
                 <div 
-                  className="min-h-[120px] p-3 rounded-md border bg-muted/30 text-sm whitespace-pre-wrap"
+                  className="min-h-[140px] p-4 rounded-md border bg-muted/30 text-base leading-relaxed whitespace-pre-wrap"
                   data-testid="notes-display"
                 >
                   {notes || <span className="text-muted-foreground italic">No notes yet. Click Edit to add notes.</span>}
@@ -397,8 +398,8 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
             </div>
           </div>
 
-          <Button className="w-full" onClick={() => onReply(lead)} data-testid="button-reply-detail">
-            <Mail className="w-4 h-4 mr-2" />
+          <Button className="w-full h-12 text-base font-semibold" onClick={() => onReply(lead)} data-testid="button-reply-detail">
+            <Mail className="w-5 h-5 mr-2" />
             Send Email
           </Button>
         </div>
@@ -406,58 +407,58 @@ export function LeadDetailPanel({ lead, emails, onClose, onStatusChange, onReply
         <Separator />
 
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold">Communication History</h3>
+          <h3 className="text-base sm:text-lg font-semibold">Communication History</h3>
           {emails.length === 0 ? (
             <div className="text-center py-8">
-              <Mail className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">No emails yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <Mail className="w-14 h-14 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-base text-muted-foreground">No emails yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
                 Start the conversation by sending an email
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {emails.map((email) => {
                 const isExpanded = expandedEmails.has(email.id);
                 const isHtml = email.body.trim().startsWith('<');
                 
                 return (
-                  <div key={email.id} className="border rounded-lg p-3 space-y-2" data-testid={`email-item-${email.id}`}>
+                  <div key={email.id} className="border rounded-lg p-4 space-y-3" data-testid={`email-item-${email.id}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <Badge variant={email.direction === "sent" ? "default" : "secondary"}>
+                      <Badge variant={email.direction === "sent" ? "default" : "secondary"} className="text-sm px-3 py-1">
                         {email.direction === "sent" ? "Sent" : "Received"}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-sm text-muted-foreground">
                         {format(new Date(email.sentAt), "MMM d, h:mm a")}
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{email.subject}</p>
-                      <div className="mt-1">
+                      <p className="text-base font-semibold">{email.subject}</p>
+                      <div className="mt-2">
                         {isHtml ? (
                           <div 
-                            className={`email-content ${!isExpanded ? 'line-clamp-3' : ''}`}
+                            className={`email-content text-base ${!isExpanded ? 'line-clamp-3' : ''}`}
                             dangerouslySetInnerHTML={{ __html: email.body }}
                           />
                         ) : (
-                          <p className={`text-sm text-muted-foreground whitespace-pre-wrap ${!isExpanded ? 'line-clamp-3' : ''}`}>
+                          <p className={`text-base text-muted-foreground whitespace-pre-wrap leading-relaxed ${!isExpanded ? 'line-clamp-3' : ''}`}>
                             {email.body}
                           </p>
                         )}
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-2 h-auto p-0 text-xs"
+                          className="mt-3 h-auto p-0 text-sm font-medium"
                           onClick={() => toggleEmailExpand(email.id)}
                         >
                           {isExpanded ? (
                             <>
-                              <ChevronUp className="w-3 h-3 mr-1" />
+                              <ChevronUp className="w-4 h-4 mr-1" />
                               Show less
                             </>
                           ) : (
                             <>
-                              <ChevronDown className="w-3 h-3 mr-1" />
+                              <ChevronDown className="w-4 h-4 mr-1" />
                               Read full message
                             </>
                           )}
