@@ -54,6 +54,10 @@ export default defineConfig(({ mode }) => {
           'supabase': ['@supabase/supabase-js'],
           'ag-grid': ['ag-grid-react', 'ag-grid-community'],
         },
+        // Optimize chunk file names for better caching
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
       },
     },
     chunkSizeWarningLimit: 1000,
@@ -61,15 +65,35 @@ export default defineConfig(({ mode }) => {
     minify: 'esbuild',
     // Asset handling
     assetsInlineLimit: 4096, // Inline assets < 4KB as base64
+    // Source maps for production debugging (disable for faster builds)
+    sourcemap: false,
+    // Enable CSS code splitting
+    cssCodeSplit: true,
+    // Module preload polyfill
+    modulePreload: {
+      polyfill: true,
+    },
+    // Target modern browsers for smaller bundle size
+    target: 'es2020',
+    // Report compressed size
+    reportCompressedSize: false, // Faster builds
   },
   // Performance optimizations
   optimizeDeps: {
     include: [
       'react',
       'react-dom',
+      'react/jsx-runtime',
       '@tanstack/react-query',
       '@supabase/supabase-js',
+      'wouter',
+      'lucide-react',
+      'zod',
+      'react-hook-form',
+      'date-fns',
     ],
+    // Exclude large dependencies that don't need pre-bundling
+    exclude: ['ag-grid-community', 'ag-grid-react'],
   },
   server: {
     fs: {
