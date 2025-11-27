@@ -208,6 +208,9 @@ function startEmailSyncJob() {
       const newEmails = await fetchNewEmails(lastSyncTime);
       let savedCount = 0;
 
+      // Update sync time immediately after fetching to prevent reprocessing if server crashes
+      const currentSyncTime = new Date().toISOString();
+
       if (newEmails.length > 0) {
         log(`📬 Found ${newEmails.length} emails to process`);
       }
@@ -269,6 +272,11 @@ function startEmailSyncJob() {
           const emailBody = getEmailBody(email);
           const referencesHeader = getHeader(email, 'References'); // Get full References chain
           
+          log(`     📋 Headers received from webmail:`);
+          log(`        Message-ID: ${messageIdHeader}`);
+          log(`        In-Reply-To: ${inReplyToHeader || 'none'}`);
+          log(`        References: ${referencesHeader || 'none'}`);
+          
           const emailData = insertEmailSchema.parse({
             leadId: lead.id,
             subject: subject || '(No Subject)',
@@ -282,30 +290,39 @@ function startEmailSyncJob() {
             references: referencesHeader || null, // Store full References chain for threading
           });
 
-          await storage.createEmail(emailData);
+          const newEmail = await storage.createEmail(emailData);
           savedCount++;
           
           // Update lead status to "Replied" if they responded
           await storage.updateLeadStatus(lead.id, 'Replied');
           log(`     📨 Saved reply from ${cleanFromAddress} for lead ${lead.clientName}`);
           
-          // Add notification for this new reply
-          const notification = await addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)');
-          log(`     🔔 Created notification ${notification.id} for ${lead.clientName}`);
-          const notificationCount = await storage.getRecentNotifications().then(n => n.length);
-          log(`     🔔 Total notifications in queue: ${notificationCount}`);
+          // Only add notification for truly new emails (check if notification doesn't already exist for this lead)
+          // This prevents duplicate notifications when server restarts or manual sync happens
+          const existingNotifications = await storage.getRecentNotifications();
+          const hasNotificationForThisLead = existingNotifications.some(n => n.leadId === lead.id && !n.isDismissed);
+          
+          if (!hasNotificationForThisLead) {
+            const notification = await addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)');
+            log(`     🔔 Created notification ${notification.id} for ${lead.clientName}`);
+            const notificationCount = await storage.getRecentNotifications().then(n => n.length);
+            log(`     🔔 Total notifications in queue: ${notificationCount}`);
+          } else {
+            log(`     ⚠️ Notification already exists for this lead, skipping duplicate`);
+          }
         } else {
           log(`     ⚠️ No matching lead found for email: ${cleanFromAddress}`);
         }
       }
 
       if (savedCount > 0) {
-        log(`✅ Email sync: ${savedCount} new replies saved and ${savedCount} notifications created`);
+        log(`✅ Email sync: ${savedCount} new replies saved and notifications created`);
       } else if (newEmails.length > 0) {
         log(`ℹ️  Email sync: ${newEmails.length} emails checked, none were new or matched leads`);
       }
 
-      lastSyncTime = new Date().toISOString();
+      // Use the sync time we captured at the beginning
+      lastSyncTime = currentSyncTime;
     } catch (error: any) {
       log(`❌ Email sync error: ${error.message}`);
       console.error(error);

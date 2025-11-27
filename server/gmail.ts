@@ -99,10 +99,20 @@ export async function sendEmail(
       messageParts.push(`In-Reply-To: ${inReplyTo}`);
       
       // Build References chain: include all previous Message-IDs
-      // Format: oldest-message-id newest-message-id current-message-id
+      // Format: oldest-message-id ... newest-message-id
+      // Do NOT duplicate inReplyTo if it's already at the end of the references chain
       if (references) {
-        // References already contains the chain, append current inReplyTo
-        messageParts.push(`References: ${references} ${inReplyTo}`);
+        // Check if inReplyTo is already the last item in the references chain
+        const referencesIds = references.trim().split(/\s+/);
+        const lastRefId = referencesIds[referencesIds.length - 1];
+        
+        if (lastRefId === inReplyTo) {
+          // Already at the end, don't duplicate
+          messageParts.push(`References: ${references}`);
+        } else {
+          // Not at the end, append it
+          messageParts.push(`References: ${references} ${inReplyTo}`);
+        }
       } else {
         // No previous chain, just use inReplyTo
         messageParts.push(`References: ${inReplyTo}`);

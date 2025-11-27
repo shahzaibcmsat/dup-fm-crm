@@ -408,12 +408,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const threadId = lastEmail?.conversationId || undefined;
       
       // Build References chain for proper threading across all email clients (Gmail, Outlook, Roundcube, etc.)
+      // The chain should contain ALL previous Message-IDs in chronological order
       let referencesChain = lastEmail?.references || '';
       if (replyToMessageId) {
-        // If there's already a references chain, append the current inReplyTo
-        if (referencesChain && !referencesChain.includes(replyToMessageId)) {
-          referencesChain = `${referencesChain} ${replyToMessageId}`;
-        } else if (!referencesChain) {
+        if (referencesChain) {
+          // Parse existing chain to check if replyToMessageId is already in it
+          const existingIds = referencesChain.trim().split(/\s+/);
+          const lastId = existingIds[existingIds.length - 1];
+          
+          // If the last email's inReplyTo is not the last item in the chain, append it
+          if (lastId !== replyToMessageId) {
+            referencesChain = `${referencesChain} ${replyToMessageId}`;
+          }
+          // If it's already the last item, keep the chain as-is
+        } else {
           // Start a new chain with just the inReplyTo
           referencesChain = replyToMessageId;
         }
