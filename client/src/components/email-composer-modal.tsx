@@ -33,19 +33,25 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
   const [isGeneratingReply, setIsGeneratingReply] = useState(false);
   const { toast } = useToast();
 
-  // Auto-populate subject when replying to a received email
+  // Clear form when switching leads or opening modal
   useEffect(() => {
-    if (isOpen && lastReceivedEmailSubject) {
-      // Check if the subject already has "Re:" prefix
-      const subjectWithReply = lastReceivedEmailSubject.startsWith("Re:") 
-        ? lastReceivedEmailSubject 
-        : `Re: ${lastReceivedEmailSubject}`;
-      setSubject(subjectWithReply);
-    } else if (isOpen && !lastReceivedEmailSubject) {
-      // Clear subject if opening for a new email (no reply context)
-      setSubject("");
+    if (isOpen) {
+      // Always clear body when opening modal for any lead
+      setBody("");
+      
+      // Handle subject based on reply context
+      if (lastReceivedEmailSubject) {
+        // Replying to a received email - add "Re:" prefix
+        const subjectWithReply = lastReceivedEmailSubject.startsWith("Re:") 
+          ? lastReceivedEmailSubject 
+          : `Re: ${lastReceivedEmailSubject}`;
+        setSubject(subjectWithReply);
+      } else {
+        // New email - clear subject
+        setSubject("");
+      }
     }
-  }, [isOpen, lastReceivedEmailSubject]);
+  }, [isOpen, lead?.id, lastReceivedEmailSubject]); // Added lead?.id to detect lead changes
 
   const handleSend = async () => {
     if (!subject.trim() || !body.trim()) return;

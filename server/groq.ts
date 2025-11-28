@@ -1,5 +1,33 @@
 import Groq from "groq-sdk";
 import { getConfig } from "./config-manager";
+import { readFileSync, existsSync } from "fs";
+import { join, resolve } from "path";
+
+// Function to load AI instructions (will be called when needed)
+function loadAIInstructions(): string {
+  try {
+    // Try multiple paths to find ai-instructions.txt
+    const possiblePaths = [
+      join(__dirname, 'ai-instructions.txt'),           // Same directory as compiled file
+      join(process.cwd(), 'server', 'ai-instructions.txt'), // Project root/server
+      join(process.cwd(), 'ai-instructions.txt'),        // Project root
+    ];
+    
+    for (const path of possiblePaths) {
+      if (existsSync(path)) {
+        const instructions = readFileSync(path, 'utf-8');
+        console.log('✅ Loaded AI instructions from:', path);
+        return instructions;
+      }
+    }
+    
+    throw new Error('File not found in any expected location');
+  } catch (error) {
+    console.warn('⚠️ Could not load ai-instructions.txt, using default instructions');
+    return `You are a professional sales representative for FMD Companies, a leading supplier of flooring, doors, and cabinets in Australia.
+Be professional, friendly, and helpful in your responses.`;
+  }
+}
 
 export type GrammarServerResult = {
   text: string;
@@ -68,6 +96,7 @@ export type AutoReplyResult = {
 export async function generateAutoReply(params: {
   leadName: string;
   leadEmail: string;
+  leadSubject?: string;
   leadDescription?: string;
   conversationHistory?: Array<{
     direction: 'sent' | 'received';
@@ -89,15 +118,17 @@ export async function generateAutoReply(params: {
   // Build context for AI
   let contextParts: string[] = [];
   
-  // Add lead information
-  contextParts.push(`Lead Name: ${params.leadName}`);
-  contextParts.push(`Lead Email: ${params.leadEmail}`);
-  
-  if (params.leadDescription) {
-    contextParts.push(`\nLead Description/Notes:\n${params.leadDescription}`);
-  }
+    // Add lead information
+    contextParts.push(`Lead Name: ${params.leadName}`);
+    contextParts.push(`Lead Email: ${params.leadEmail}`);
 
-  // Add conversation history if available
+    if (params.leadSubject) {
+      contextParts.push(`Lead Subject/Inquiry: ${params.leadSubject}`);
+    }
+
+    if (params.leadDescription) {
+      contextParts.push(`\nLead Description/Notes:\n${params.leadDescription}`);
+    }  // Add conversation history if available
   if (params.conversationHistory && params.conversationHistory.length > 0) {
     contextParts.push(`\n--- Email Conversation History (oldest to newest) ---`);
     params.conversationHistory.forEach((email, index) => {
@@ -114,17 +145,21 @@ export async function generateAutoReply(params: {
 
   const context = contextParts.join('\n');
 
+  // Load AI instructions when generating reply
+  const aiInstructions = loadAIInstructions();
+
   const system =
     "You are a professional business email assistant. Generate email replies in JSON format.\n\n" +
+    aiInstructions + "\n\n" +
     "You must respond with ONLY a valid JSON object with this EXACT structure:\n" +
     '{"subject": "email subject line", "body": "email message content"}\n\n' +
     "Email writing guidelines:\n" +
     "- Read the provided lead information and conversation history\n" +
     "- If a draft is provided, incorporate and expand on it\n" +
-    "- Write professionally but friendly\n" +
-    "- Be concise and clear\n" +
     "- Address previous questions/concerns if any\n" +
-    "- For replies, use 'Re: ' prefix in subject\n" +
+    "- SUBJECT LINE RULES:\n" +
+    "  * If there is NO conversation history, this is a FIRST EMAIL - create an appropriate subject WITHOUT 'Re:'\n" +
+    "  * If there IS conversation history, this is a REPLY - use 'Re: ' prefix in subject\n" +
     "- Don't include email signatures\n\n" +
     "IMPORTANT: Return ONLY the JSON object. No explanations, no markdown, no extra text.";
 

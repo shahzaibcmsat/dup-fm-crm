@@ -84,16 +84,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           timestamp: email.sentAt.toISOString()
         }));
 
-      // Generate auto-reply
-      const result = await generateAutoReply({
-        leadName: lead.clientName,
-        leadEmail: lead.email,
-        leadDescription: lead.leadDetails || undefined,
-        conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
-        currentDraft: currentDraft || undefined,
-      });
-
-      res.json(result);
+    // Generate auto-reply
+    const result = await generateAutoReply({
+      leadName: lead.clientName,
+      leadEmail: lead.email,
+      leadSubject: lead.subject || undefined,
+      leadDescription: lead.leadDetails || undefined,
+      conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
+      currentDraft: currentDraft || undefined,
+    });      res.json(result);
     } catch (error: any) {
       console.error("Auto-reply generation error:", error);
       res.status(500).json({ message: error.message });
