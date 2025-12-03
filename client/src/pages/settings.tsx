@@ -7,6 +7,8 @@ import { Mail, CheckCircle2, Server, BellOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { UserManagement } from "@/components/user-management";
+import { CompanyManagement } from "@/components/company-management";
+import { PermissionManagement } from "@/components/permission-management";
 import { useAuth } from "@/hooks/use-auth";
 
 interface ConfigData {
@@ -92,7 +94,7 @@ export default function Settings() {
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold mb-2">Settings</h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            View connection status and manage users
+            Manage users, companies, permissions, and view connection status
           </p>
         </div>
         <Button 
@@ -117,54 +119,74 @@ export default function Settings() {
           {/* User Management */}
           <UserManagement />
 
+          {/* Permission Management */}
+          <PermissionManagement />
+
+          {/* Company Management */}
+          <CompanyManagement />
+
           {/* Connected Status */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Connection Status</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Connection Status</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-                    <Mail className="w-5 h-5 text-primary" />
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div className="flex items-center justify-between p-3 sm:p-4 border rounded-lg gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   </div>
-                  <div>
-                    <p className="font-medium">Gmail</p>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Gmail</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">
                       {config.EMAIL_FROM_ADDRESS || "Not configured"}
                     </p>
                   </div>
                 </div>
-                <Badge variant={config.GMAIL_CLIENT_ID && config.GMAIL_CLIENT_SECRET ? "default" : "secondary"} className="gap-1">
+                <Badge 
+                  variant={config.GMAIL_CLIENT_ID && config.GMAIL_CLIENT_SECRET ? "default" : "secondary"} 
+                  className="gap-1 flex-shrink-0 text-xs sm:text-sm"
+                >
                   {config.GMAIL_CLIENT_ID && config.GMAIL_CLIENT_SECRET ? (
                     <>
                       <CheckCircle2 className="w-3 h-3" />
-                      Connected
+                      <span className="hidden sm:inline">Connected</span>
+                      <span className="sm:hidden">✓</span>
                     </>
                   ) : (
-                    "Not Connected"
+                    <>
+                      <span className="hidden sm:inline">Not Connected</span>
+                      <span className="sm:hidden">✗</span>
+                    </>
                   )}
                 </Badge>
               </div>
 
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-                    <Server className="w-5 h-5 text-primary" />
+              <div className="flex items-center justify-between p-3 sm:p-4 border rounded-lg gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Server className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   </div>
-                  <div>
-                    <p className="font-medium">Groq AI</p>
-                    <p className="text-sm text-muted-foreground">Grammar checking enabled</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">Groq AI</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Grammar checking enabled</p>
                   </div>
                 </div>
-                <Badge variant={config.GROQ_API_KEY ? "default" : "secondary"} className="gap-1">
+                <Badge 
+                  variant={config.GROQ_API_KEY ? "default" : "secondary"} 
+                  className="gap-1 flex-shrink-0 text-xs sm:text-sm"
+                >
                   {config.GROQ_API_KEY ? (
                     <>
                       <CheckCircle2 className="w-3 h-3" />
-                      Connected
+                      <span className="hidden sm:inline">Connected</span>
+                      <span className="sm:hidden">✓</span>
                     </>
                   ) : (
-                    "Not Connected"
+                    <>
+                      <span className="hidden sm:inline">Not Connected</span>
+                      <span className="sm:hidden">✗</span>
+                    </>
                   )}
                 </Badge>
               </div>
@@ -174,16 +196,16 @@ export default function Settings() {
           {/* Lead Statuses */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Lead Statuses</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Lead Statuses</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="default">NEW</Badge>
-                <Badge variant="secondary">CONTACTED</Badge>
-                <Badge variant="outline">QUALIFIED</Badge>
-                <Badge variant="secondary">FOLLOW-UP</Badge>
-                <Badge variant="default">CLOSED WON</Badge>
-                <Badge variant="outline">CLOSED LOST</Badge>
+                <Badge variant="default" className="text-xs sm:text-sm">NEW</Badge>
+                <Badge variant="secondary" className="text-xs sm:text-sm">CONTACTED</Badge>
+                <Badge variant="outline" className="text-xs sm:text-sm">QUALIFIED</Badge>
+                <Badge variant="secondary" className="text-xs sm:text-sm">FOLLOW-UP</Badge>
+                <Badge variant="default" className="text-xs sm:text-sm">CLOSED WON</Badge>
+                <Badge variant="outline" className="text-xs sm:text-sm">CLOSED LOST</Badge>
               </div>
             </CardContent>
           </Card>

@@ -200,7 +200,7 @@ export function PermissionManagement() {
           <Label htmlFor="member-select">Select Member</Label>
           <select
             id="member-select"
-            className="w-full rounded-md border border-input bg-background px-3 py-2"
+            className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-base"
             value={selectedUserId}
             onChange={(e) => setSelectedUserId(e.target.value)}
           >
@@ -215,19 +215,20 @@ export function PermissionManagement() {
 
         {selectedUserId && (
           <>
-            <div className="rounded-lg border p-4 bg-muted/50">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h4 className="font-semibold">{selectedUser?.email}</h4>
-                  <p className="text-sm text-muted-foreground">
+            <div className="rounded-lg border p-3 sm:p-4 bg-muted/50">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div className="min-w-0">
+                  <h4 className="font-semibold text-sm sm:text-base truncate">{selectedUser?.email}</h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {userPermissions ? "Permissions configured" : "No permissions set yet"}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-shrink-0">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={selectAllCompanies}
+                    className="text-xs sm:text-sm"
                   >
                     Select All
                   </Button>
@@ -235,6 +236,7 @@ export function PermissionManagement() {
                     size="sm"
                     variant="outline"
                     onClick={clearAllCompanies}
+                    className="text-xs sm:text-sm"
                   >
                     Clear All
                   </Button>
@@ -243,23 +245,24 @@ export function PermissionManagement() {
 
               {/* Company Access */}
               <div className="space-y-3 mb-6">
-                <Label className="text-base font-semibold">Company Access</Label>
-                <p className="text-sm text-muted-foreground">
+                <Label className="text-sm sm:text-base font-semibold">Company Access</Label>
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Member will only see leads from selected companies
                 </p>
                 
                 {companies && companies.length > 0 ? (
-                  <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-3">
+                  <div className="space-y-2 max-h-48 sm:max-h-60 overflow-y-auto border rounded-md p-3">
                     {companies.map((company) => (
-                      <div key={company.id} className="flex items-center space-x-2">
+                      <div key={company.id} className="flex items-center space-x-2 py-1">
                         <Checkbox
                           id={`company-${company.id}`}
                           checked={selectedCompanyIds.includes(company.id)}
                           onCheckedChange={() => toggleCompany(company.id)}
+                          className="flex-shrink-0"
                         />
                         <Label
                           htmlFor={`company-${company.id}`}
-                          className="font-normal cursor-pointer"
+                          className="font-normal cursor-pointer text-sm flex-1 min-w-0 break-words"
                         >
                           {company.name}
                         </Label>
@@ -269,7 +272,7 @@ export function PermissionManagement() {
                 ) : (
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
+                    <AlertDescription className="text-xs sm:text-sm">
                       No companies found. Create companies first to assign access.
                     </AlertDescription>
                   </Alert>
@@ -278,16 +281,17 @@ export function PermissionManagement() {
 
               {/* Inventory Access */}
               <div className="space-y-3">
-                <Label className="text-base font-semibold">Feature Access</Label>
+                <Label className="text-sm sm:text-base font-semibold">Feature Access</Label>
                 <div className="flex items-center space-x-2 p-3 border rounded-md">
                   <Checkbox
                     id="inventory-access"
                     checked={canSeeInventory}
                     onCheckedChange={(checked) => setCanSeeInventory(checked === true)}
+                    className="flex-shrink-0"
                   />
                   <Label
                     htmlFor="inventory-access"
-                    className="font-normal cursor-pointer"
+                    className="font-normal cursor-pointer text-sm flex-1"
                   >
                     Can view Inventory page
                   </Label>
@@ -295,7 +299,7 @@ export function PermissionManagement() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -303,12 +307,14 @@ export function PermissionManagement() {
                   setSelectedCompanyIds([]);
                   setCanSeeInventory(false);
                 }}
+                className="w-full sm:w-auto order-2 sm:order-1"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSavePermissions}
                 disabled={updatePermissionsMutation.isPending}
+                className="w-full sm:w-auto order-1 sm:order-2"
               >
                 {updatePermissionsMutation.isPending ? (
                   <>
@@ -323,9 +329,9 @@ export function PermissionManagement() {
 
             {/* Current Permissions Summary */}
             {userPermissions && (
-              <div className="rounded-lg border p-4 bg-muted/30">
-                <h4 className="font-semibold mb-2 text-sm">Current Permissions Summary</h4>
-                <div className="space-y-1 text-sm text-muted-foreground">
+              <div className="rounded-lg border p-3 sm:p-4 bg-muted/30">
+                <h4 className="font-semibold mb-2 text-xs sm:text-sm">Current Permissions Summary</h4>
+                <div className="space-y-1 text-xs sm:text-sm text-muted-foreground">
                   <p>
                     <strong>Companies:</strong>{" "}
                     {userPermissions.companyIds.length > 0

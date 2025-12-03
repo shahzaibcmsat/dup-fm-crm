@@ -16,6 +16,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useUnreadEmailCounts } from "@/lib/notificationStore";
@@ -50,6 +51,14 @@ export function AppSidebar() {
   const { unreadTotal } = useUnreadEmailCounts();
   const { user } = useAuth();
   const userRole = user?.role || localStorage.getItem("userRole");
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  // Function to close mobile sidebar on navigation
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   const { data: companies = [] } = useQuery<Company[]>({
     queryKey: ['/api/companies'],
@@ -121,7 +130,7 @@ export function AppSidebar() {
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild isActive={location === item.url} className="text-base py-2.5">
-                        <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
+                        <Link href={item.url} onClick={handleLinkClick} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
                           <div className="relative">
                             <item.icon className="w-5 h-5" />
                             {isFMDDashboard && unreadTotal > 0 && (
@@ -167,7 +176,7 @@ export function AppSidebar() {
                   filteredCompanies.map((company) => (
                     <SidebarMenuItem key={company.id}>
                       <SidebarMenuButton asChild isActive={location === `/companies/${company.id}`} className="text-base py-2.5">
-                        <Link href={`/companies/${company.id}`} data-testid={`link-company-${company.id}`}>
+                        <Link href={`/companies/${company.id}`} onClick={handleLinkClick} data-testid={`link-company-${company.id}`}>
                           <Building2 className="w-5 h-5" />
                           <span className="font-medium">{company.name}</span>
                         </Link>
@@ -187,7 +196,7 @@ export function AppSidebar() {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={location === inventoryItem.url} className="text-base py-2.5">
-                    <Link href={inventoryItem.url}>
+                    <Link href={inventoryItem.url} onClick={handleLinkClick}>
                       <inventoryItem.icon className="w-5 h-5" />
                       <span className="font-medium">{inventoryItem.title}</span>
                     </Link>

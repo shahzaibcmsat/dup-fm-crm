@@ -88,92 +88,92 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, users =
       onClick={() => onViewDetails(lead)}
       data-testid={`card-lead-${lead.id}`}
     >
-      <div className="flex items-start justify-between gap-3 sm:gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h3 className={`font-semibold text-base sm:text-lg truncate ${hasUnread ? 'text-red-900 font-bold' : 'text-fmd-black'}`} data-testid={`text-client-name-${lead.id}`}>
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex items-start gap-1.5 sm:gap-2 mb-1 flex-wrap">
+            <h3 className={`font-semibold text-sm sm:text-lg ${hasUnread ? 'text-red-900 font-bold' : 'text-fmd-black'} break-words`} data-testid={`text-client-name-${lead.id}`}>
               {lead.clientName}
             </h3>
             {hasUnread && (
-              <Badge variant="destructive" className="animate-pulse text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1">
-                🔔 {unread} NEW REPLY{unread > 1 ? 'IES' : ''}!
+              <Badge variant="destructive" className="animate-pulse text-[9px] sm:text-sm font-bold px-1 sm:px-3 py-0.5 sm:py-1 whitespace-nowrap flex-shrink-0">
+                🔔 {unread}
               </Badge>
             )}
             {(lead as any).company && (
-              <Badge variant="outline" className="text-xs sm:text-sm gap-1 bg-fmd-green/10 border-fmd-green text-fmd-green font-semibold px-2 sm:px-3 py-0.5 sm:py-1">
-                <Building2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                {(lead as any).company.name}
+              <Badge variant="outline" className="text-[9px] sm:text-sm gap-0.5 sm:gap-1 bg-fmd-green/10 border-fmd-green text-fmd-green font-semibold px-1 sm:px-3 py-0.5 sm:py-1 max-w-[120px] sm:max-w-[180px] flex-shrink-0">
+                <Building2 className="w-2.5 h-2.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="truncate">{(lead as any).company.name}</span>
               </Badge>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm sm:text-base mb-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-sm sm:text-base mb-2">
             {lead.phone && (
-              <span className="group relative inline-flex items-center gap-1.5 sm:gap-2 bg-white border border-gray-200 rounded-lg sm:rounded-xl px-2 sm:px-4 py-1.5 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-400">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 to-green-400/10 rounded-lg sm:rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="relative flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-md sm:rounded-lg shadow-sm">
-                  <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+              <span className="group relative inline-flex items-center gap-1 sm:gap-2 bg-white border border-gray-200 rounded-md sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-emerald-400">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 to-green-400/10 rounded-md sm:rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="relative flex items-center justify-center w-4 h-4 sm:w-8 sm:h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded sm:rounded-lg shadow-sm flex-shrink-0">
+                  <Phone className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-white" />
                 </div>
-                <span className="relative font-semibold text-gray-700 group-hover:text-emerald-700 transition-colors text-xs sm:text-base">
+                <span className="relative font-semibold text-gray-700 group-hover:text-emerald-700 transition-colors text-[10px] sm:text-sm truncate max-w-[80px] sm:max-w-none">
                   {lead.phone}
                 </span>
               </span>
             )}
-            <div className="group relative inline-flex items-center gap-1.5 sm:gap-2 bg-white border border-gray-200 rounded-lg sm:rounded-xl px-2 sm:px-4 py-1.5 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-blue-400">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-indigo-400/10 rounded-lg sm:rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div className="relative flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-md sm:rounded-lg shadow-sm">
-                <Mail className={`w-3 h-3 sm:w-4 sm:h-4 ${hasUnread ? 'text-yellow-300 animate-pulse' : 'text-white'}`} />
+            <div className="group relative inline-flex items-center gap-1 sm:gap-2 bg-white border border-gray-200 rounded-md sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-blue-400 min-w-0 flex-1">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-indigo-400/10 rounded-md sm:rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative flex items-center justify-center w-4 h-4 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded sm:rounded-lg shadow-sm flex-shrink-0">
+                <Mail className={`w-2.5 h-2.5 sm:w-4 sm:h-4 ${hasUnread ? 'text-yellow-300 animate-pulse' : 'text-white'}`} />
               </div>
-              <span className={`relative font-semibold ${hasUnread ? 'text-red-600 font-bold' : 'text-gray-700 group-hover:text-blue-700'} transition-colors text-xs sm:text-base truncate max-w-[150px] sm:max-w-none`} data-testid={`text-email-${lead.id}`}>
+              <span className={`relative font-semibold ${hasUnread ? 'text-red-600 font-bold' : 'text-gray-700 group-hover:text-blue-700'} transition-colors text-[10px] sm:text-sm truncate min-w-0`} data-testid={`text-email-${lead.id}`}>
                 {lead.email}
               </span>
               {hasUnread && (
-                <span className="absolute -top-1 sm:-top-2 -right-1 sm:-right-2 bg-gradient-to-br from-red-500 to-pink-600 text-white text-xs font-bold leading-none rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center shadow-lg animate-bounce ring-2 ring-red-200">
+                <span className="absolute -top-0.5 sm:-top-2 -right-0.5 sm:-right-2 bg-gradient-to-br from-red-500 to-pink-600 text-white text-[8px] sm:text-xs font-bold leading-none rounded-full w-3.5 h-3.5 sm:w-6 sm:h-6 flex items-center justify-center shadow-lg animate-bounce ring-1 sm:ring-2 ring-red-200 flex-shrink-0">
                   {unread > 9 ? '9+' : unread}
                 </span>
               )}
             </div>
           </div>
           {lead.subject && (
-            <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground mb-2">
-              <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-fmd-burgundy flex-shrink-0" />
-              <span className="truncate font-medium">{lead.subject}</span>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-base text-muted-foreground mb-1.5 sm:mb-2 min-w-0">
+              <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 text-fmd-burgundy flex-shrink-0" />
+              <span className="truncate font-medium min-w-0">{lead.subject}</span>
             </div>
           )}
           {lead.leadDetails && (
-            <p className={`text-sm sm:text-base line-clamp-2 mb-2 ${hasUnread ? 'text-red-700 font-medium' : 'text-muted-foreground'}`}>
+            <p className={`text-[10px] sm:text-base line-clamp-2 mb-1.5 sm:mb-2 ${hasUnread ? 'text-red-700 font-medium' : 'text-muted-foreground'}`}>
               {lead.leadDetails}
             </p>
           )}
           {assignedUser && (
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-blue-700 mb-2">
-              <UserCog className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
-              <span className="font-medium">
-                Assigned to: <span className="font-semibold">{assignedUser.email}</span>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-sm text-blue-700 mb-1.5 sm:mb-2 min-w-0">
+              <UserCog className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
+              <span className="font-medium truncate min-w-0">
+                Assigned to: <span className="font-semibold truncate">{assignedUser.email}</span>
               </span>
             </div>
           )}
-          <div className="flex flex-col gap-1 text-xs sm:text-sm text-muted-foreground">
+          <div className="flex flex-col gap-0.5 sm:gap-1 text-[10px] sm:text-sm text-muted-foreground">
             {(lead as any).submissionDate && (
-              <div className="flex items-center gap-2">
-                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 text-blue-600" />
-                <span className="truncate">
+              <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                <FileText className="w-2.5 h-2.5 sm:w-4 sm:h-4 flex-shrink-0 text-blue-600" />
+                <span className="truncate min-w-0">
                   <span className="font-medium">Submitted:</span> {format(new Date((lead as any).submissionDate), 'MMM d, yyyy')}
                 </span>
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="truncate">
+            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+              <Clock className="w-2.5 h-2.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="truncate min-w-0">
                 <span className="font-medium">Created:</span> {format(new Date(lead.createdAt), 'MMM d, yyyy')}
               </span>
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+        <div className="flex flex-col items-end gap-1.5 sm:gap-2 flex-shrink-0 w-[85px] sm:w-[120px]">
           {onStatusChange ? (
-            <div className="relative w-full min-w-[100px] sm:min-w-[120px]">
-              <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-2 sm:px-4 h-8 sm:h-10 rounded-lg font-bold text-xs sm:text-base shadow-md ${statusConfig[lead.status]?.ring || ''} transition-all hover:shadow-lg flex items-center justify-center`}>
-                {lead.status}
+            <div className="relative w-full">
+              <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-1.5 sm:px-3 h-6 sm:h-10 rounded sm:rounded-lg font-bold text-[9px] sm:text-sm shadow-md transition-all hover:shadow-lg flex items-center justify-center overflow-hidden`}>
+                <span className="truncate block w-full text-center leading-tight">{lead.status}</span>
               </div>
               <Select 
                 value={lead.status} 
@@ -188,7 +188,7 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, users =
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent onClick={(e) => e.stopPropagation()} className="text-sm sm:text-base">
+                <SelectContent onClick={(e) => e.stopPropagation()} className="text-xs sm:text-base">
                   {statusOptions.map((status) => {
                     const config = statusConfig[status];
                     return (
@@ -199,8 +199,8 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, users =
                         className="cursor-pointer"
                       >
                         <div className="flex items-center gap-2">
-                          <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${config?.bg || 'bg-gray-500'}`}></div>
-                          <span className="font-semibold">{status}</span>
+                          <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${config?.bg || 'bg-gray-500'} flex-shrink-0`}></div>
+                          <span className="font-semibold text-xs sm:text-sm">{status}</span>
                         </div>
                       </SelectItem>
                     );
@@ -209,21 +209,22 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, users =
               </Select>
             </div>
           ) : (
-            <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-2 sm:px-4 h-8 sm:h-10 rounded-lg font-bold text-xs sm:text-base shadow-md ${statusConfig[lead.status]?.ring || ''} flex items-center justify-center w-full min-w-[100px] sm:min-w-[120px]`} data-testid={`badge-status-${lead.id}`}>
-              {lead.status}
+            <div className={`${statusConfig[lead.status]?.bg || 'bg-gray-500'} ${statusConfig[lead.status]?.text || 'text-white'} px-1.5 sm:px-3 h-6 sm:h-10 rounded sm:rounded-lg font-bold text-[9px] sm:text-sm shadow-md flex items-center justify-center w-full overflow-hidden`} data-testid={`badge-status-${lead.id}`}>
+              <span className="truncate block w-full text-center leading-tight">{lead.status}</span>
             </div>
           )}
           <Button 
             size="sm" 
-            className={`h-8 sm:h-10 w-full font-medium text-xs sm:text-base bg-green-700 hover:bg-green-800 text-white ${hasUnread ? 'animate-pulse ring-2 ring-green-400' : ''}`}
+            className={`h-6 sm:h-10 w-full font-medium text-[9px] sm:text-sm px-1.5 sm:px-3 bg-green-700 hover:bg-green-800 text-white ${hasUnread ? 'animate-pulse ring-1 sm:ring-2 ring-green-400' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               onViewDetails(lead);
             }}
             data-testid={`button-view-lead-${lead.id}`}
           >
-            <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-            View Lead
+            <Mail className="w-2.5 h-2.5 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
+            <span className="hidden sm:inline">View Lead</span>
+            <span className="sm:hidden truncate">View</span>
           </Button>
         </div>
       </div>

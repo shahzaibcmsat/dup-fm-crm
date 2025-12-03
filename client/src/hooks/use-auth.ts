@@ -27,6 +27,7 @@ interface AuthState {
   logout: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   loadPermissions: () => Promise<void>;
+  refreshUserMetadata: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>((set: any) => ({
@@ -36,7 +37,15 @@ export const useAuth = create<AuthState>((set: any) => ({
 
   checkAuth: async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // First try to refresh the session to get the latest user metadata
+      const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+      let session = refreshedSession;
+      
+      // If refresh fails, fallback to getSession
+      if (!session) {
+        const { data } = await supabase.auth.getSession();
+        session = data.session;
+      }
       
       if (session?.user) {
         const user: User = {
@@ -192,6 +201,39 @@ export const useAuth = create<AuthState>((set: any) => ({
       }
     } catch (error) {
       console.error('Failed to load permissions:', error);
+    }
+  },
+
+  refreshUserMetadata: async () => {
+    try {
+      // Force refresh the session to get updated user metadata
+      const { data: { session } } = await supabase.auth.refreshSession();
+      
+      if (session?.user) {
+        const state = useAuth.getState();
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          role: (session.user.user_metadata?.role || 'member') as 'admin' | 'member',
+          canSeeInventory: session.user.user_metadata?.canSeeInventory || false,
+          permissions: state.user?.permissions, // Preserve existing permissions
+        };
+        
+        console.log('🔄 User metadata refreshed:', {
+          email: user.email,
+          role: user.role,
+          canSeeInventory: user.canSeeInventory,
+        });
+        
+        set({ user, isAuthenticated: true });
+        
+        // Sync with localStorage
+        localStorage.setItem('userRole', user.role);
+        localStorage.setItem('userEmail', user.email);
+        localStorage.setItem('userId', user.id);
+      }
+    } catch (error) {
+      console.error('Failed to refresh user metadata:', error);
     }
   },
 }));

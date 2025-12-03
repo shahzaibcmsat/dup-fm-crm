@@ -12,6 +12,7 @@ import { UserPlus, Mail, Key, Shield, Trash2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/hooks/use-auth";
 
 interface User {
   id: string;
@@ -29,6 +30,7 @@ export function UserManagement() {
   const [role, setRole] = useState<"admin" | "member">("member");
   const [autoConfirm, setAutoConfirm] = useState(true);
   const { toast } = useToast();
+  const { user: currentUser, refreshUserMetadata } = useAuth();
 
   // Fetch users
   const { data: users = [], isLoading } = useQuery<User[]>({
@@ -118,11 +120,18 @@ export function UserManagement() {
       
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      
+      // If the user being updated is the currently logged-in user, refresh their auth state
+      if (currentUser && currentUser.id === variables.userId) {
+        console.log('🔄 Refreshing current user metadata after inventory access change...');
+        await refreshUserMetadata();
+      }
+      
       toast({
         title: "Access updated",
-        description: "Inventory access updated successfully",
+        description: "Inventory access updated successfully. Changes applied immediately.",
       });
     },
     onError: (error: Error) => {
@@ -182,16 +191,16 @@ export function UserManagement() {
                 Add User
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="text-lg sm:text-xl">Create New User</DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm">
                   Add a new user to the system with specified role and credentials
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <div className="space-y-3 sm:space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="flex items-center gap-2">
+                  <Label htmlFor="email" className="flex items-center gap-2 text-sm sm:text-base">
                     <Mail className="w-4 h-4" />
                     Email
                   </Label>
@@ -201,10 +210,11 @@ export function UserManagement() {
                     placeholder="user@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className="h-10 sm:h-11 text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="flex items-center gap-2">
+                  <Label htmlFor="password" className="flex items-center gap-2 text-sm sm:text-base">
                     <Key className="w-4 h-4" />
                     Password
                   </Label>
@@ -214,15 +224,16 @@ export function UserManagement() {
                     placeholder="Minimum 6 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    className="h-10 sm:h-11 text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role" className="flex items-center gap-2">
+                  <Label htmlFor="role" className="flex items-center gap-2 text-sm sm:text-base">
                     <Shield className="w-4 h-4" />
                     Role
                   </Label>
                   <Select value={role} onValueChange={(value: "admin" | "member") => setRole(value)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10 sm:h-11 text-base">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -240,19 +251,19 @@ export function UserManagement() {
                       </SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
                     {role === "admin" 
                       ? "Admin has full access to all features including Settings and Import"
                       : "Member can view and manage leads but cannot access Settings or Import"}
                   </p>
                 </div>
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="auto-confirm" className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4" />
-                      Auto-confirm user
+                <div className="flex items-center justify-between p-3 sm:p-4 border rounded-lg gap-3">
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <Label htmlFor="auto-confirm" className="flex items-center gap-2 text-sm sm:text-base">
+                      <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                      <span>Auto-confirm user</span>
                     </Label>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
                       Skip email verification (user can login immediately)
                     </p>
                   </div>
@@ -260,16 +271,22 @@ export function UserManagement() {
                     id="auto-confirm"
                     checked={autoConfirm}
                     onCheckedChange={setAutoConfirm}
+                    className="flex-shrink-0"
                   />
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsDialogOpen(false)}
+                  className="w-full sm:w-auto order-2 sm:order-1"
+                >
                   Cancel
                 </Button>
                 <Button 
                   onClick={handleCreateUser}
                   disabled={createUserMutation.isPending}
+                  className="w-full sm:w-auto order-1 sm:order-2"
                 >
                   {createUserMutation.isPending ? "Creating..." : "Create User"}
                 </Button>
@@ -288,33 +305,113 @@ export function UserManagement() {
             No users found
           </div>
         ) : (
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Inventory Access</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-muted-foreground" />
-                        {user.email}
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block border rounded-lg overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Inventory Access</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-muted-foreground" />
+                          {user.email}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                          {user.role === "admin" ? "Admin" : "Member"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={(user as any).canSeeInventory || false}
+                          onCheckedChange={(checked) => {
+                            toggleInventoryMutation.mutate({
+                              userId: user.id,
+                              canSeeInventory: checked
+                            });
+                          }}
+                          disabled={user.role === "admin" || toggleInventoryMutation.isPending}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {user.email_confirmed_at ? (
+                          <Badge variant="outline" className="gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Verified
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">Pending</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={deleteUserMutation.isPending}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {users.map((user) => (
+                <div key={user.id} className="border rounded-lg p-4 space-y-3 bg-card">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <p className="font-medium text-sm truncate">{user.email}</p>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                        {user.role === "admin" ? "Admin" : "Member"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant={user.role === "admin" ? "default" : "secondary"} className="text-xs">
+                          {user.role === "admin" ? "Admin" : "Member"}
+                        </Badge>
+                        {user.email_confirmed_at ? (
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <CheckCircle className="w-3 h-3" />
+                            Verified
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Pending</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteUser(user.id)}
+                      disabled={deleteUserMutation.isPending}
+                      className="flex-shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Inventory Access</Label>
                       <Switch
                         checked={(user as any).canSeeInventory || false}
                         onCheckedChange={(checked) => {
@@ -325,35 +422,18 @@ export function UserManagement() {
                         }}
                         disabled={user.role === "admin" || toggleInventoryMutation.isPending}
                       />
-                    </TableCell>
-                    <TableCell>
-                      {user.email_confirmed_at ? (
-                        <Badge variant="outline" className="gap-1">
-                          <CheckCircle className="w-3 h-3" />
-                          Verified
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">Pending</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteUser(user.id)}
-                        disabled={deleteUserMutation.isPending}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Created</p>
+                      <p className="text-xs font-medium">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
