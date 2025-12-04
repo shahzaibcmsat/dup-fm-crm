@@ -1,6 +1,6 @@
 import { leads, emails, companies, inventory, notifications, type Lead, type InsertLead, type Email, type InsertEmail, type Company, type InsertCompany, type Inventory, type InsertInventory, type Notification, type InsertNotification } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, or, and } from "drizzle-orm";
 import { debug, info, error as logError } from './vite';
 
 export type LeadWithCompany = Lead & { company?: Company | null };
@@ -20,6 +20,7 @@ export interface IStorage {
   getEmailsByLeadId(leadId: string): Promise<Email[]>;
   getEmailByMessageId(messageId: string): Promise<Email | undefined>;
   getEmailByConversationId(conversationId: string): Promise<Email | undefined>;
+  getEmailByConversationIdAndEmail(conversationId: string, email: string): Promise<Email | undefined>;
   createEmail(email: InsertEmail): Promise<Email>;
   createLeads(leadsList: InsertLead[]): Promise<Lead[]>;
   getAllCompanies(): Promise<Company[]>;
@@ -36,6 +37,7 @@ export interface IStorage {
   createInventoryItems(items: InsertInventory[]): Promise<Inventory[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   getRecentNotifications(since?: string): Promise<Notification[]>;
+  getNotificationByEmailId(emailId: string): Promise<Notification | undefined>;
   dismissNotification(id: string): Promise<boolean>;
   dismissNotificationsByLead(leadId: string): Promise<number>;
   cleanupOldNotifications(): Promise<number>;
@@ -180,10 +182,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEmailsByLeadId(leadId: string): Promise<Email[]> {
+    // First get the lead to know their email address
+    const lead = await this.getLead(leadId);
+    if (!lead) return [];
+    
+    // Return emails where:
+    // 1. leadId matches AND
+    // 2. The lead's email is either sender (fromEmail) OR receiver (toEmail)
+    // This prevents cross-contamination when same email is used for multiple leads
     return await db
       .select()
       .from(emails)
-      .where(eq(emails.leadId, leadId))
+      .where(
+        and(
+          eq(emails.leadId, leadId),
+          or(
+            eq(emails.fromEmail, lead.email),
+            eq(emails.toEmail, lead.email)
+          )
+        )
+      )
       .orderBy(desc(emails.sentAt));
   }
 
@@ -200,6 +218,20 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(emails.sentAt))
       .limit(1);
     return email || undefined;
+  }
+
+  async getEmailByConversationIdAndEmail(conversationId: string, emailAddress: string): Promise<Email | undefined> {
+    const allEmails = await db
+      .select()
+      .from(emails)
+      .where(eq(emails.conversationId, conversationId))
+      .orderBy(desc(emails.sentAt));
+    
+    // Find email where fromEmail or toEmail matches the sender
+    const matchingEmail = allEmails.find(e => 
+      e.fromEmail === emailAddress || e.toEmail === emailAddress
+    );
+    return matchingEmail || undefined;
   }
 
   async createEmail(insertEmail: InsertEmail): Promise<Email> {
@@ -300,15 +332,42 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getRecentNotifications(since?: string): Promise<Notification[]> {
-    const query = db
-      .select()
+  async getRecentNotifications(since?: string, userId?: string): Promise<Notification[]> {
+    // Join with leads table to access assignedTo field
+    const results = await db
+      .select({
+        notification: notifications,
+        lead: leads
+      })
       .from(notifications)
+      .leftJoin(leads, eq(notifications.leadId, leads.id))
       .where(eq(notifications.isDismissed, false))
       .orderBy(desc(notifications.createdAt))
       .limit(50);
 
-    return await query;
+    // Filter based on user assignment
+    const filteredResults = results.filter(({ notification, lead }) => {
+      if (!lead) return false; // Skip if lead doesn't exist
+      
+      // If userId provided (member), only show their assigned leads
+      if (userId) {
+        return lead.assignedTo === userId;
+      }
+      
+      // If no userId (admin), show all notifications
+      return true;
+    });
+
+    return filteredResults.map(({ notification }) => notification);
+  }
+
+  async getNotificationByEmailId(emailId: string): Promise<Notification | undefined> {
+    const result = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.emailId, emailId))
+      .limit(1);
+    return result[0];
   }
 
   async dismissNotification(id: string): Promise<boolean> {

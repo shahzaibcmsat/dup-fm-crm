@@ -6,10 +6,13 @@ import { queryClient } from "@/lib/queryClient";
 interface EmailNotification {
   id: string;
   leadId: string;
+  emailId?: string;
   leadName: string;
   fromEmail: string;
   subject: string;
   timestamp: string;
+  count?: number;
+  notificationIds?: string[];
 }
 
 const SHOWN_NOTIFICATIONS_KEY = 'fmd-shown-notifications';
@@ -50,7 +53,15 @@ export function useEmailNotifications() {
   useEffect(() => {
     const checkForNotifications = async () => {
       try {
-        const response = await fetch('/api/notifications/emails');
+        // Get the Supabase auth token to send with the request
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: HeadersInit = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
+        const response = await fetch('/api/notifications/emails', { headers });
         
         if (!response.ok) {
           console.error('❌ CLIENT: Failed to fetch notifications:', response.statusText);
@@ -83,38 +94,49 @@ export function useEmailNotifications() {
           let newCount = 0;
           
           data.notifications.forEach((notification: EmailNotification) => {
-            // Check if this notification has been shown before
-            const alreadyShown = shownNotificationsRef.current.has(notification.id);
-            console.log(`   📬 Notification ${notification.id} for ${notification.leadName} - Already shown: ${alreadyShown}`);
+            const emailCount = notification.count || 1;
+            const notifIds = notification.notificationIds || [notification.id];
             
-            if (!alreadyShown) {
-              console.log(`   🔔 CLIENT: NEW notification - showing toast for ${notification.leadName}`);
+            console.log(`   📦 RAW notification object:`, JSON.stringify({
+              id: notification.id,
+              leadName: notification.leadName,
+              count: notification.count,
+              notificationIds: notification.notificationIds,
+              hasCount: 'count' in notification,
+              countValue: notification.count,
+              countType: typeof notification.count
+            }));
+            
+            // Check if any of these notifications have been shown before
+            const anyShown = notifIds.some(id => shownNotificationsRef.current.has(id));
+            console.log(`   📬 Notification for ${notification.leadName} - Count: ${emailCount}, Already shown: ${anyShown}`);
+            
+            if (!anyShown) {
+              console.log(`   🔔 CLIENT: NEW notification - showing toast for ${notification.leadName} (${emailCount} email${emailCount > 1 ? 's' : ''})`);
               newCount++;
               
               // Show toast
               toast({
-                title: "📧 New Email Reply!",
+                title: `📧 New Email ${emailCount > 1 ? `Replies (${emailCount})` : 'Reply'}!`,
                 description: `${notification.leadName} replied: "${notification.subject}"`,
                 duration: 8000,
               });
               
-              // Mark as shown
-              shownNotificationsRef.current.add(notification.id);
+              // Mark all notification IDs as shown
+              notifIds.forEach(id => shownNotificationsRef.current.add(id));
               saveShownNotifications(shownNotificationsRef.current);
 
-              // Update unread counter
-              notificationStore.increment(notification.leadId);
+              // Update unread counter with the actual count
+              notificationStore.setCount(notification.leadId, emailCount);
               
               // Refresh data
               queryClient.invalidateQueries({ queryKey: ['/api/emails', notification.leadId] });
               queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
             } else {
-              // Already shown, but update badge count if needed
-              const { perLeadUnread } = notificationStore.getState();
-              if (!perLeadUnread[notification.leadId] || perLeadUnread[notification.leadId] === 0) {
-                console.log(`   🔄 Syncing badge count for ${notification.leadName}`);
-                notificationStore.increment(notification.leadId);
-              }
+              // Already shown, but ALWAYS update badge count to ensure React components have latest value
+              // Even if localStorage has correct count, components might have stale state
+              console.log(`   🔄 Syncing badge count for ${notification.leadName} to ${emailCount} (ensure components updated)`);
+              notificationStore.setCount(notification.leadId, emailCount);
             }
           });
           

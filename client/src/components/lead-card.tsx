@@ -118,19 +118,19 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, users =
                 </span>
               </span>
             )}
-            <div className="group relative flex items-center gap-1 sm:gap-2 bg-white border border-gray-200 rounded-md sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-blue-400 min-w-0 w-full sm:flex-1 overflow-hidden" title={lead.email}>
+            <div className="group relative flex items-center gap-1 sm:gap-2 bg-white border border-gray-200 rounded-md sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-blue-400 min-w-0 w-full sm:flex-1 overflow-visible" title={lead.email}>
               <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-indigo-400/10 rounded-md sm:rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              {hasUnread && (
+                <span className="relative bg-gradient-to-br from-red-500 to-pink-600 text-white text-[10px] sm:text-xs font-bold leading-none rounded-full min-w-[20px] h-[20px] sm:min-w-[24px] sm:h-[24px] px-1 flex items-center justify-center shadow-xl animate-bounce ring-2 ring-red-200 flex-shrink-0 z-50">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
               <div className="relative flex items-center justify-center w-4 h-4 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded sm:rounded-lg shadow-sm flex-shrink-0">
                 <Mail className={`w-2.5 h-2.5 sm:w-4 sm:h-4 ${hasUnread ? 'text-yellow-300 animate-pulse' : 'text-white'}`} />
               </div>
               <span className={`relative font-semibold ${hasUnread ? 'text-red-600 font-bold' : 'text-gray-700 group-hover:text-blue-700'} transition-colors text-[10px] sm:text-sm truncate min-w-0 flex-1`} data-testid={`text-email-${lead.id}`}>
                 {lead.email}
               </span>
-              {hasUnread && (
-                <span className="absolute -top-0.5 sm:-top-2 -left-0.5 sm:-left-2 bg-gradient-to-br from-red-500 to-pink-600 text-white text-[9px] sm:text-xs font-bold leading-none rounded-full min-w-[18px] h-[18px] sm:min-w-[24px] sm:h-6 px-1 flex items-center justify-center shadow-lg animate-bounce ring-1 sm:ring-2 ring-red-200 flex-shrink-0">
-                  {unread > 9 ? '9+' : unread}
-                </span>
-              )}
             </div>
           </div>
           {lead.subject && (

@@ -82,10 +82,24 @@ export default function Leads() {
     return [];
   }, [allLeads, user?.role, user?.id]);
 
-  const { data: emails = [] } = useQuery<Email[]>({
+  const { data: emails = [], isPending: isEmailsPending, isError: isEmailsError, error: emailsError } = useQuery<Email[]>({
     queryKey: ['/api/emails', selectedLead?.id],
     enabled: !!selectedLead,
   });
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('📧 EMAILS QUERY DEBUG:', {
+      selectedLeadId: selectedLead?.id,
+      selectedLeadEmail: selectedLead?.email,
+      queryEnabled: !!selectedLead,
+      isPending: isEmailsPending,
+      isError: isEmailsError,
+      error: emailsError,
+      emailsCount: emails.length,
+      emails: emails
+    });
+  }, [selectedLead?.id, isEmailsPending, isEmailsError, emailsError, emails.length]);
 
   // Handle selected lead from URL query parameter
   useEffect(() => {

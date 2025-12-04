@@ -36,26 +36,42 @@ function saveState(state: State) {
 }
 
 const state: State = loadState();
+let cachedSnapshot: State = { ...state };
 
 const listeners = new Set<Listener>();
 
 function emit() {
+  // Create a new snapshot object only when state actually changes
+  cachedSnapshot = {
+    unreadTotal: state.unreadTotal,
+    perLeadUnread: { ...state.perLeadUnread }
+  };
   saveState(state);
+  console.log(`🔔 STORE: Emitting to ${listeners.size} listeners`);
   listeners.forEach((l) => l());
 }
 
 export const notificationStore = {
-  subscribe(cb: Listener) {
+  subscribe: (cb: Listener) => {
     listeners.add(cb);
     return () => listeners.delete(cb);
   },
-  getState(): State {
-    return state;
+  getState: () => {
+    // Return the cached snapshot - same reference until emit() is called
+    return cachedSnapshot;
   },
   increment(leadId: string) {
     state.perLeadUnread[leadId] = (state.perLeadUnread[leadId] || 0) + 1;
     state.unreadTotal += 1;
     emit();
+  },
+  setCount(leadId: string, count: number) {
+    const oldCount = state.perLeadUnread[leadId] || 0;
+    console.log(`📊 STORE: setCount for ${leadId}: ${oldCount} → ${count}`);
+    state.perLeadUnread[leadId] = count;
+    state.unreadTotal = state.unreadTotal - oldCount + count;
+    emit();
+    console.log(`✅ STORE: Updated and emitted, new total: ${state.unreadTotal}`);
   },
   clearLead(leadId: string) {
     const count = state.perLeadUnread[leadId] || 0;
@@ -74,7 +90,11 @@ export const notificationStore = {
 
 export function useUnreadEmailCounts() {
   return useSyncExternalStore(
-    (cb) => notificationStore.subscribe(cb),
-    () => notificationStore.getState()
+    notificationStore.subscribe,
+    notificationStore.getState,
+    () => ({
+      unreadTotal: 0,
+      perLeadUnread: {}
+    })
   );
 }

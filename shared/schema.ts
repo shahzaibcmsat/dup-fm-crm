@@ -133,6 +133,7 @@ export const insertInventorySchema = z.object({
 export const notifications = pgTable("notifications", {
   id: text("id").primaryKey(),
   leadId: varchar("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+  emailId: varchar("email_id").references(() => emails.id, { onDelete: "cascade" }),
   leadName: text("lead_name").notNull(),
   fromEmail: text("from_email").notNull(),
   subject: text("subject").notNull(),

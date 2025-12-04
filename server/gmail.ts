@@ -84,6 +84,9 @@ export async function sendEmail(
   try {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     const sendFromUser = fromEmail || process.env.EMAIL_FROM_ADDRESS || 'me';
+    
+    // Gmail API quota cost: send = 100 units (high cost operation)
+    // Daily limit: 1,000,000,000 units = ~10,000 sends per day
 
     // Create email message in RFC 2822 format
     const messageParts = [
@@ -185,7 +188,7 @@ export function isGmailConfigured(): boolean {
   return getGmailConfig() !== null;
 }
 
-// Fetch new emails from inbox
+// Fetch new emails from inbox with Gmail API quota compliance
 export async function fetchNewEmails(sinceDateTime?: string): Promise<any[]> {
   const oauth2Client = createOAuth2Client();
   
@@ -198,7 +201,7 @@ export async function fetchNewEmails(sinceDateTime?: string): Promise<any[]> {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     console.log('📬 Fetching new emails from Gmail inbox...');
 
-    // Build query
+    // Build query - Gmail API best practice: use specific queries to reduce quota usage
     let query = 'in:inbox';
     if (sinceDateTime) {
       const date = new Date(sinceDateTime);
@@ -206,24 +209,26 @@ export async function fetchNewEmails(sinceDateTime?: string): Promise<any[]> {
       query += ` after:${formattedDate}`;
     }
 
-    // List messages
+    // List messages (quota cost: 5 units)
     const listResponse = await gmail.users.messages.list({
       userId: 'me',
       q: query,
-      maxResults: 50,
+      maxResults: 50, // Reasonable limit to stay within quota
     });
 
     const messages = listResponse.data.messages || [];
     console.log(`📫 Found ${messages.length} emails`);
 
-    // Fetch full details for each message
+    // Fetch full details for each message (quota cost: 5 units per message)
+    // Total cost: 5 + (5 * messages.length) units
+    // Max ~255 units for 50 messages - well within 250 units/second limit
     const fullMessages = [];
     for (const message of messages) {
       if (message.id) {
         const fullMessage = await gmail.users.messages.get({
           userId: 'me',
           id: message.id,
-          format: 'full',
+          format: 'full', // Get full message with headers (needed for threading)
         });
         fullMessages.push(fullMessage.data);
       }
@@ -231,8 +236,17 @@ export async function fetchNewEmails(sinceDateTime?: string): Promise<any[]> {
 
     return fullMessages;
   } catch (error: any) {
-    console.error('❌ Failed to fetch emails:', error.message);
-    return [];
+    // Check for quota/rate limit errors
+    if (error.code === 429) {
+      console.error('❌ Gmail API rate limit exceeded (429)');
+      throw new Error('RATE_LIMIT_EXCEEDED');
+    } else if (error.code === 403 && error.message?.includes('quota')) {
+      console.error('❌ Gmail API quota exceeded (403)');
+      throw new Error('QUOTA_EXCEEDED');
+    } else {
+      console.error('❌ Failed to fetch emails:', error.message);
+      throw error;
+    }
   }
 }
 

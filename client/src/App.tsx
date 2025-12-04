@@ -127,7 +127,7 @@ export default function App() {
   // Check authentication status on mount
   useEffect(() => {
     checkAuth();
-  }, []);
+  }, [checkAuth]);
 
   // Show loading spinner while checking auth
   if (isLoading) {

@@ -119,12 +119,13 @@ app.use((req, res, next) => {
 })();
 
 // Notification functions using database
-export async function addEmailNotification(leadId: string, leadName: string, fromEmail: string, subject: string) {
+export async function addEmailNotification(leadId: string, leadName: string, fromEmail: string, subject: string, emailId: string) {
   const { storage } = await import('./storage');
   
   const notificationData = {
     id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     leadId,
+    emailId,
     leadName,
     fromEmail,
     subject,
@@ -135,33 +136,62 @@ export async function addEmailNotification(leadId: string, leadName: string, fro
   
   const notification = await storage.createNotification(notificationData);
   
-  console.log(`🔔 BACKEND: Created notification ${notification.id} for lead ${leadName} (${leadId})`);
+  console.log(`🔔 BACKEND: Created notification ${notification.id} for lead ${leadName} (${leadId}) linked to email ${emailId}`);
   console.log(`   Total notifications in queue: ${await storage.getRecentNotifications().then(n => n.length)}`);
   console.log(`   Dismissed notifications: 0`);
   
   return notification;
 }
 
-export async function getRecentNotifications(since?: string) {
+export async function getRecentNotifications(since?: string, userId?: string) {
   const { storage } = await import('./storage');
   
-  const notifications = await storage.getRecentNotifications(since);
+  const notifications = await storage.getRecentNotifications(since, userId);
   
-  console.log(`📊 BACKEND: Getting notifications - Total: ${notifications.length}, After filtering dismissed: ${notifications.length}`);
+  const userContext = userId ? `member ${userId}` : 'admin (all leads)';
+  console.log(`📊 BACKEND: Getting notifications for ${userContext} - Total: ${notifications.length}`);
   
-  // Keep only the latest notification per lead (to avoid showing old notifications)
-  const latestByLead = new Map<string, typeof notifications[0]>();
+  // Group notifications by lead and count them
+  const notificationsByLead = new Map<string, {
+    id: string;
+    leadId: string;
+    leadName: string;
+    fromEmail: string;
+    subject: string;
+    createdAt: Date;
+    count: number;
+    notificationIds: string[];
+  }>();
+  
   for (const n of notifications) {
-    const existing = latestByLead.get(n.leadId);
-    if (!existing || new Date(n.createdAt) > new Date(existing.createdAt)) {
-      latestByLead.set(n.leadId, n);
+    const existing = notificationsByLead.get(n.leadId);
+    if (!existing) {
+      notificationsByLead.set(n.leadId, {
+        id: n.id,
+        leadId: n.leadId,
+        leadName: n.leadName,
+        fromEmail: n.fromEmail,
+        subject: n.subject,
+        createdAt: n.createdAt,
+        count: 1,
+        notificationIds: [n.id]
+      });
+    } else {
+      existing.count++;
+      existing.notificationIds.push(n.id);
+      // Keep the latest subject and timestamp
+      if (new Date(n.createdAt) > new Date(existing.createdAt)) {
+        existing.subject = n.subject;
+        existing.createdAt = n.createdAt;
+      }
     }
   }
 
-  // Get array of latest notifications per lead
-  const result = Array.from(latestByLead.values());
+  // Get array of notifications with counts per lead
+  const result = Array.from(notificationsByLead.values());
 
-  console.log(`   Notification IDs: ${result.map(n => n.id).join(', ')}`);
+  console.log(`   Grouped into ${result.length} leads with total count: ${result.reduce((sum, n) => sum + n.count, 0)}`);
+  console.log(`   Per lead: ${result.map(n => `${n.leadName}: ${n.count}`).join(', ')}`);
 
   // Return sorted newest-first
   return result.sort(
@@ -187,12 +217,15 @@ export async function clearAllNotifications() {
   log(`🧹 Cleaned up ${count} old dismissed notifications`);
 }
 
-// Background job to sync emails every 30 seconds for faster notifications
+// Background job to sync emails with Gmail API rate limiting compliance
 function startEmailSyncJob() {
-  const SYNC_INTERVAL = 30 * 1000; // 30 seconds (faster sync for quicker notifications)
+  const SYNC_INTERVAL = 30 * 1000; // 30 seconds (Gmail allows frequent polling)
+  const MAX_RETRY_DELAY = 5 * 60 * 1000; // Max 5 minutes between retries
   let lastSyncTime = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(); // Start from 48h ago (when server is down)
+  let consecutiveErrors = 0;
+  let backoffDelay = 0;
 
-  log('📧 Email sync job started (checking every 30 seconds, 48h lookback)');
+  log('📧 Email sync job started (30s interval, Gmail API compliant)');
 
   const syncEmails = async () => {
     try {
@@ -241,27 +274,48 @@ function startEmailSyncJob() {
         const existing = await storage.getEmailByMessageId(gmailMessageId);
         
         if (existing) {
-          log(`     ℹ️ Email already exists in database, skipping`);
+          log(`     ℹ️ Email already exists in database, skipping email creation`);
+          
+          // BUT - check if notification exists for this email
+          // This handles cases where email was saved but notification creation failed
+          const existingNotification = await storage.getNotificationByEmailId(existing.id);
+          
+          if (!existingNotification && existing.leadId) {
+            // Email exists but notification doesn't - create it now!
+            const lead = await storage.getLead(existing.leadId);
+            if (lead) {
+              const notification = await addEmailNotification(
+                lead.id, 
+                lead.clientName, 
+                cleanFromAddress, 
+                existing.subject || '(No Subject)', 
+                existing.id
+              );
+              log(`     🔔 Created missing notification ${notification.id} for existing email ${existing.id}`);
+            }
+          }
+          
           continue;
         }
 
-        // Try to find the correct lead by matching conversation thread
+        // Try to find the correct lead by matching conversation thread AND email address
         let lead = null;
         const inReplyToHeader = getInReplyToHeader(email);
         
-        // First, try to match by thread ID (Gmail's conversation threading)
+        // First, try to match by BOTH thread ID and email address
+        // This prevents cross-contamination when same email is used for multiple leads
         if (threadId) {
-          log(`     🔍 Looking for existing email with thread ID: ${threadId}`);
-          const relatedEmail = await storage.getEmailByConversationId(threadId);
+          log(`     🔍 Looking for existing email with thread ID: ${threadId} AND email: ${cleanFromAddress}`);
+          const relatedEmail = await storage.getEmailByConversationIdAndEmail(threadId, cleanFromAddress);
           if (relatedEmail) {
-            log(`     ✅ Found related email in thread, using lead: ${relatedEmail.leadId}`);
+            log(`     ✅ Found related email in thread matching both thread and email, using lead: ${relatedEmail.leadId}`);
             lead = await storage.getLead(relatedEmail.leadId);
           }
         }
         
-        // If no match by thread, try by email address
+        // If no match by thread+email, try by email address only
         if (!lead) {
-          log(`     🔍 No thread match, looking for lead by email address`);
+          log(`     🔍 No thread+email match, looking for lead by email address only`);
           lead = await storage.getLeadByEmail(cleanFromAddress);
         }
         
@@ -297,18 +351,17 @@ function startEmailSyncJob() {
           await storage.updateLeadStatus(lead.id, 'Replied');
           log(`     📨 Saved reply from ${cleanFromAddress} for lead ${lead.clientName}`);
           
-          // Only add notification for truly new emails (check if notification doesn't already exist for this lead)
-          // This prevents duplicate notifications when server restarts or manual sync happens
-          const existingNotifications = await storage.getRecentNotifications();
-          const hasNotificationForThisLead = existingNotifications.some(n => n.leadId === lead.id && !n.isDismissed);
+          // Check if notification already exists for THIS specific email (not just this lead)
+          // This allows multiple notifications for multiple emails from the same lead
+          const existingNotification = await storage.getNotificationByEmailId(newEmail.id);
           
-          if (!hasNotificationForThisLead) {
-            const notification = await addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)');
-            log(`     🔔 Created notification ${notification.id} for ${lead.clientName}`);
+          if (!existingNotification) {
+            const notification = await addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)', newEmail.id);
+            log(`     🔔 Created notification ${notification.id} for ${lead.clientName} linked to email ${newEmail.id}`);
             const notificationCount = await storage.getRecentNotifications().then(n => n.length);
             log(`     🔔 Total notifications in queue: ${notificationCount}`);
           } else {
-            log(`     ⚠️ Notification already exists for this lead, skipping duplicate`);
+            log(`     ⚠️ Notification already exists for this email, skipping duplicate`);
           }
         } else {
           log(`     ⚠️ No matching lead found for email: ${cleanFromAddress}`);
@@ -323,15 +376,47 @@ function startEmailSyncJob() {
 
       // Use the sync time we captured at the beginning
       lastSyncTime = currentSyncTime;
+      consecutiveErrors = 0; // Reset error count on success
+      backoffDelay = 0; // Reset backoff
     } catch (error: any) {
-      log(`❌ Email sync error: ${error.message}`);
-      console.error(error);
+      consecutiveErrors++;
+      
+      // Implement exponential backoff for Gmail API errors (required by Google)
+      if (error.code === 429 || error.code === 403 || error.message?.includes('quota')) {
+        // Rate limit or quota exceeded - back off exponentially
+        backoffDelay = Math.min(Math.pow(2, consecutiveErrors) * 1000, MAX_RETRY_DELAY);
+        log(`⚠️ Gmail API rate limit hit, backing off for ${backoffDelay / 1000}s`);
+      } else if (error.code === 503 || error.message?.includes('backend')) {
+        // Service unavailable - exponential backoff
+        backoffDelay = Math.min(Math.pow(2, consecutiveErrors) * 1000, MAX_RETRY_DELAY);
+        log(`⚠️ Gmail API unavailable, backing off for ${backoffDelay / 1000}s`);
+      } else {
+        log(`❌ Email sync error: ${error.message}`);
+      }
+      
+      console.error('Full error:', error);
+      
+      // Reset after too many errors to prevent permanent failure
+      if (consecutiveErrors > 10) {
+        log('⚠️ Too many errors, resetting sync state');
+        consecutiveErrors = 0;
+        backoffDelay = 0;
+      }
     }
   };
 
-  // Run immediately on startup
-  setTimeout(syncEmails, 5000); // Wait 5 seconds after server start
+  // Wrapper to handle backoff delays
+  const syncWithBackoff = async () => {
+    if (backoffDelay > 0) {
+      log(`⏳ Delaying sync for ${backoffDelay / 1000}s due to previous errors`);
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    }
+    await syncEmails();
+  };
 
-  // Then run every 30 seconds
-  setInterval(syncEmails, SYNC_INTERVAL);
+  // Run immediately on startup (after 5 seconds)
+  setTimeout(syncWithBackoff, 5000);
+
+  // Then run every 30 seconds (Gmail API allows frequent polling)
+  setInterval(syncWithBackoff, SYNC_INTERVAL);
 }

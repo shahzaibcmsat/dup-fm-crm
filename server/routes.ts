@@ -502,10 +502,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { getRecentNotifications } = await import("./index");
       const since = req.query.since as string | undefined;
-      const notifications = await getRecentNotifications(since);
+      
+      // Get user from Supabase session using Authorization header
+      const authHeader = req.headers.authorization;
+      let filterUserId: string | undefined = undefined;
+      
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const accessToken = authHeader.substring(7);
+        
+        try {
+          const { createClient } = await import('@supabase/supabase-js');
+          const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+          const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+          
+          // Create Supabase client with the access token
+          const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            },
+          });
+          
+          // Get the current user from the token
+          const { data: { user }, error: authError } = await supabase.auth.getUser();
+          
+          if (authError) {
+            console.log(`⚠️ Auth error:`, authError);
+          }
+          
+          if (user) {
+            const userRole = user.user_metadata?.role;
+            // Only filter for members, admins see all
+            filterUserId = userRole === 'member' ? user.id : undefined;
+            console.log(`📡 Notification request - User: ${user.email} (Role: ${userRole}, ID: ${user.id})`);
+            console.log(`📡 Filter will be applied: ${filterUserId ? 'YES (member)' : 'NO (admin or no user)'}`);
+          } else {
+            console.log(`⚠️ No user found in token - treating as admin (showing all)`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Error validating token:`, error);
+        }
+      } else {
+        console.log(`⚠️ No Authorization header - treating as admin (showing all)`);
+      }
+      
+      const notifications = await getRecentNotifications(since, filterUserId);
       console.log(`📡 Notification request - since: ${since || 'all'}, returning: ${notifications.length} notifications`);
       if (notifications.length > 0) {
         console.log(`   Notification IDs: ${notifications.map(n => n.id).join(', ')}`);
+        console.log(`   With counts: ${notifications.map(n => `${n.leadName}=${n.count}`).join(', ')}`);
       }
       res.json({ notifications });
     } catch (error: any) {
@@ -638,15 +684,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             inReplyTo: messageIdHeader || null, // Store Message-ID header for proper threading
           });
 
-          await storage.createEmail(emailData);
+          const newEmail = await storage.createEmail(emailData);
           savedCount++;
           
           // Update lead status to "Replied" if they responded
           await storage.updateLeadStatus(lead.id, "Replied");
           
-          // Add notification for this new reply
-          const notification = await addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)');
-          console.log(`     Created notification ${notification.id} for ${lead.clientName}`);
+          // Check if notification already exists for THIS specific email
+          const existingNotification = await storage.getNotificationByEmailId(newEmail.id);
+          
+          if (!existingNotification) {
+            const notification = await addEmailNotification(lead.id, lead.clientName, cleanFromAddress, subject || '(No Subject)', newEmail.id);
+            console.log(`     Created notification ${notification.id} for ${lead.clientName} linked to email ${newEmail.id}`);
+          } else {
+            console.log(`     Notification already exists for this email`);
+          }
         } else {
           console.log(`     No matching lead found for email: ${fromAddress}`);
         }
