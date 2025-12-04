@@ -381,10 +381,10 @@ export default function Dashboard() {
   const someSelected = selectedLeadIds.size > 0 && selectedLeadIds.size < filteredLeads.length;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-3 sm:space-y-4 lg:space-y-6 px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent">
+          <h2 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold tracking-tight bg-gradient-to-r from-fmd-burgundy via-fmd-black to-fmd-green bg-clip-text text-transparent leading-tight">
             Overview of your leads and performance
           </h2>
         </div>
@@ -458,82 +458,82 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="border-l-4 border-l-fmd-burgundy shadow-lg hover:shadow-xl transition-shadow">
-          <CardContent className="p-3 sm:p-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+        <Card className="border-l-4 border-l-fmd-burgundy shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-3 sm:p-4 lg:p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm sm:text-base text-muted-foreground font-medium">Total Leads</p>
-                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1 sm:mt-2 text-fmd-burgundy" data-testid="stat-total-leads">{stats.total}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm lg:text-base text-muted-foreground font-medium truncate">Total Leads</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold mt-1 text-fmd-burgundy" data-testid="stat-total-leads">{stats.total}</p>
               </div>
-              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-fmd-burgundy/10 flex items-center justify-center">
-                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-fmd-burgundy" />
+              <div className="h-9 w-9 sm:h-11 sm:w-11 lg:h-12 lg:w-12 rounded-full bg-fmd-burgundy/10 flex items-center justify-center flex-shrink-0">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-fmd-burgundy" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-shadow">
-          <CardContent className="p-3 sm:p-4">
+        <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-3 sm:p-4 lg:p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm sm:text-base text-muted-foreground font-medium">Active</p>
-                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1 sm:mt-2 text-blue-600" data-testid="stat-active-leads">{stats.active}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm lg:text-base text-muted-foreground font-medium truncate">Active</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold mt-1 text-blue-600" data-testid="stat-active-leads">{stats.active}</p>
               </div>
-              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              <div className="h-9 w-9 sm:h-11 sm:w-11 lg:h-12 lg:w-12 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-fmd-green shadow-lg hover:shadow-xl transition-shadow">
-          <CardContent className="p-3 sm:p-4">
+        <Card className="border-l-4 border-l-fmd-green shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-3 sm:p-4 lg:p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm sm:text-base text-muted-foreground font-medium">Contacted</p>
-                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1 sm:mt-2 text-fmd-green" data-testid="stat-contacted-leads">{stats.contacted}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm lg:text-base text-muted-foreground font-medium truncate">Contacted</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold mt-1 text-fmd-green" data-testid="stat-contacted-leads">{stats.contacted}</p>
               </div>
-              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-fmd-green/10 flex items-center justify-center">
-                <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-fmd-green" />
+              <div className="h-9 w-9 sm:h-11 sm:w-11 lg:h-12 lg:w-12 rounded-full bg-fmd-green/10 flex items-center justify-center flex-shrink-0">
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-fmd-green" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-amber-500 shadow-lg hover:shadow-xl transition-shadow">
-          <CardContent className="p-3 sm:p-4">
+        <Card className="border-l-4 border-l-amber-500 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-3 sm:p-4 lg:p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm sm:text-base text-muted-foreground font-medium">Conversion</p>
-                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1 sm:mt-2 text-amber-600" data-testid="stat-conversion-rate">{stats.conversion}%</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm lg:text-base text-muted-foreground font-medium truncate">Conversion</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold mt-1 text-amber-600" data-testid="stat-conversion-rate">{stats.conversion}%</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-amber-600" />
+              <div className="h-9 w-9 sm:h-11 sm:w-11 lg:h-12 lg:w-12 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-amber-600" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+      <div className="flex flex-col gap-2 sm:gap-3">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, email, or details..."
-            className="pl-9 sm:pl-10 text-sm sm:text-base h-10 sm:h-11"
+            placeholder="Search by name, email..."
+            className="pl-9 text-sm h-10 w-full"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             data-testid="input-search"
           />
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground hidden sm:block" />
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground hidden sm:block flex-shrink-0" />
           <Select value={companyFilter} onValueChange={setCompanyFilter}>
-            <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base h-10 sm:h-11" data-testid="select-company-filter">
+            <SelectTrigger className="flex-1 sm:flex-none sm:w-48 text-sm h-10" data-testid="select-company-filter">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="text-sm sm:text-base">
+            <SelectContent className="text-sm">
               <SelectItem value="all">All Companies</SelectItem>
               {companies.map((company) => (
                 <SelectItem key={company.id} value={company.id}>
@@ -546,10 +546,10 @@ export default function Dashboard() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base h-10 sm:h-11" data-testid="select-filter">
+            <SelectTrigger className="flex-1 sm:flex-none sm:w-48 text-sm h-10" data-testid="select-filter">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="text-sm sm:text-base">
+            <SelectContent className="text-sm">
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="New">New</SelectItem>
               <SelectItem value="Contacted">Contacted</SelectItem>
@@ -565,17 +565,17 @@ export default function Dashboard() {
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-semibold text-fmd-black">All Leads</h2>
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-semibold text-fmd-black">All Leads</h2>
           {filteredLeads.length > 0 && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Checkbox
                 checked={allFilteredSelected}
                 onCheckedChange={handleSelectAll}
                 aria-label="Select all leads"
-                className={someSelected ? "data-[state=checked]:bg-primary/50" : ""}
+                className={`${someSelected ? "data-[state=checked]:bg-primary/50" : ""} h-5 w-5`}
               />
-              <p className="text-base text-muted-foreground" data-testid="text-result-count">
+              <p className="text-xs sm:text-sm lg:text-base text-muted-foreground" data-testid="text-result-count">
                 {selectedLeadIds.size > 0 
                   ? `${selectedLeadIds.size} of ${filteredLeads.length} selected`
                   : `${filteredLeads.length} lead${filteredLeads.length !== 1 ? 's' : ''}`}
@@ -611,14 +611,14 @@ export default function Dashboard() {
           </Card>
         ) : (
           <>
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {paginatedLeads.map((lead) => (
-                <div key={lead.id} className="flex items-start gap-3">
+                <div key={lead.id} className="flex items-start gap-2 sm:gap-3">
                   <Checkbox
                     checked={selectedLeadIds.has(lead.id)}
                     onCheckedChange={() => handleToggleSelectLead(lead.id)}
                     aria-label={`Select ${lead.clientName}`}
-                    className="mt-4"
+                    className="mt-3 sm:mt-4 h-5 w-5 flex-shrink-0"
                   />
                   <div className="flex-1">
                     <LeadCard
@@ -635,16 +635,17 @@ export default function Dashboard() {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 sm:pt-4 border-t">
+                <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                   Showing {startIndex + 1} to {Math.min(endIndex, filteredLeads.length)} of {filteredLeads.length} leads
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-center">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
+                    className="h-8 px-3 text-xs sm:text-sm"
                   >
                     Previous
                   </Button>
@@ -661,7 +662,7 @@ export default function Dashboard() {
                         (page === currentPage + 2 && currentPage < totalPages - 2);
 
                       if (showEllipsis) {
-                        return <span key={page} className="px-2 text-muted-foreground">...</span>;
+                        return <span key={page} className="px-1 sm:px-2 text-xs sm:text-sm text-muted-foreground">...</span>;
                       }
 
                       if (!showPage) return null;
@@ -672,7 +673,7 @@ export default function Dashboard() {
                           variant={currentPage === page ? "default" : "outline"}
                           size="sm"
                           onClick={() => setCurrentPage(page)}
-                          className={currentPage === page ? "bg-fmd-green hover:bg-fmd-green-dark" : ""}
+                          className={`h-8 w-8 p-0 text-xs sm:text-sm ${currentPage === page ? "bg-fmd-green hover:bg-fmd-green-dark" : ""}`}
                         >
                           {page}
                         </Button>
@@ -684,6 +685,7 @@ export default function Dashboard() {
                     size="sm"
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
+                    className="h-8 px-3 text-xs sm:text-sm"
                   >
                     Next
                   </Button>

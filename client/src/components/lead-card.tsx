@@ -95,7 +95,7 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, users =
               {lead.clientName}
             </h3>
             {hasUnread && (
-              <Badge variant="destructive" className="animate-pulse text-[9px] sm:text-sm font-bold px-1 sm:px-3 py-0.5 sm:py-1 whitespace-nowrap flex-shrink-0">
+              <Badge variant="destructive" className="animate-pulse text-xs sm:text-sm font-bold px-2 sm:px-3 py-1 sm:py-1 whitespace-nowrap flex-shrink-0 min-w-[40px] min-h-[24px] sm:min-w-fit flex items-center justify-center">
                 🔔 {unread}
               </Badge>
             )}
@@ -106,28 +106,28 @@ export function LeadCard({ lead, onReply, onViewDetails, onStatusChange, users =
               </Badge>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-sm sm:text-base mb-2">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-1.5 sm:gap-2 text-sm sm:text-base mb-2">
             {lead.phone && (
-              <span className="group relative inline-flex items-center gap-1 sm:gap-2 bg-white border border-gray-200 rounded-md sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-emerald-400">
+              <span className="group relative inline-flex items-center gap-1 sm:gap-2 bg-white border border-gray-200 rounded-md sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-emerald-400 w-full sm:w-auto">
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 to-green-400/10 rounded-md sm:rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <div className="relative flex items-center justify-center w-4 h-4 sm:w-8 sm:h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded sm:rounded-lg shadow-sm flex-shrink-0">
                   <Phone className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-white" />
                 </div>
-                <span className="relative font-semibold text-gray-700 group-hover:text-emerald-700 transition-colors text-[10px] sm:text-sm truncate max-w-[80px] sm:max-w-none">
+                <span className="relative font-semibold text-gray-700 group-hover:text-emerald-700 transition-colors text-[10px] sm:text-sm">
                   {lead.phone}
                 </span>
               </span>
             )}
-            <div className="group relative inline-flex items-center gap-1 sm:gap-2 bg-white border border-gray-200 rounded-md sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-blue-400 min-w-0 flex-1">
+            <div className="group relative flex items-center gap-1 sm:gap-2 bg-white border border-gray-200 rounded-md sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-2 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-blue-400 min-w-0 w-full sm:flex-1 overflow-hidden" title={lead.email}>
               <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-indigo-400/10 rounded-md sm:rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div className="relative flex items-center justify-center w-4 h-4 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded sm:rounded-lg shadow-sm flex-shrink-0">
                 <Mail className={`w-2.5 h-2.5 sm:w-4 sm:h-4 ${hasUnread ? 'text-yellow-300 animate-pulse' : 'text-white'}`} />
               </div>
-              <span className={`relative font-semibold ${hasUnread ? 'text-red-600 font-bold' : 'text-gray-700 group-hover:text-blue-700'} transition-colors text-[10px] sm:text-sm truncate min-w-0`} data-testid={`text-email-${lead.id}`}>
+              <span className={`relative font-semibold ${hasUnread ? 'text-red-600 font-bold' : 'text-gray-700 group-hover:text-blue-700'} transition-colors text-[10px] sm:text-sm truncate min-w-0 flex-1`} data-testid={`text-email-${lead.id}`}>
                 {lead.email}
               </span>
               {hasUnread && (
-                <span className="absolute -top-0.5 sm:-top-2 -right-0.5 sm:-right-2 bg-gradient-to-br from-red-500 to-pink-600 text-white text-[8px] sm:text-xs font-bold leading-none rounded-full w-3.5 h-3.5 sm:w-6 sm:h-6 flex items-center justify-center shadow-lg animate-bounce ring-1 sm:ring-2 ring-red-200 flex-shrink-0">
+                <span className="absolute -top-0.5 sm:-top-2 -left-0.5 sm:-left-2 bg-gradient-to-br from-red-500 to-pink-600 text-white text-[9px] sm:text-xs font-bold leading-none rounded-full min-w-[18px] h-[18px] sm:min-w-[24px] sm:h-6 px-1 flex items-center justify-center shadow-lg animate-bounce ring-1 sm:ring-2 ring-red-200 flex-shrink-0">
                   {unread > 9 ? '9+' : unread}
                 </span>
               )}
