@@ -445,16 +445,18 @@ export default function Dashboard() {
               </Button>
             </>
           )}
-          <Button 
-            onClick={() => {
-              setEditingLead(null);
-              setIsAddLeadOpen(true);
-            }}
-            className="bg-fmd-green hover:bg-fmd-green-dark text-sm sm:text-base"
-          >
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
-            Add Lead
-          </Button>
+          {selectedLeadIds.size === 0 && (
+            <Button 
+              onClick={() => {
+                setEditingLead(null);
+                setIsAddLeadOpen(true);
+              }}
+              className="bg-fmd-green hover:bg-fmd-green-dark text-sm sm:text-base"
+            >
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+              Add Lead
+            </Button>
+          )}
         </div>
       </div>
 

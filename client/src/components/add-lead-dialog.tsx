@@ -174,7 +174,7 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-fmd-burgundy">
             {lead ? "Edit Lead" : "Add New Lead"}
@@ -183,8 +183,8 @@ export function AddLeadDialog({ isOpen, onClose, lead }: AddLeadDialogProps) {
             {lead ? "Update lead information" : "Create a new lead in your CRM"}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="grid gap-4 py-4 overflow-y-auto flex-1 px-1">
             <div className="grid gap-2">
               <Label htmlFor="clientName">Client Name *</Label>
               <Input

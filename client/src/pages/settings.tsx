@@ -2,10 +2,8 @@ import React from "react";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Mail, CheckCircle2, Server, BellOff } from "lucide-react";
+import { Mail, CheckCircle2, Server } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
 import { UserManagement } from "@/components/user-management";
 import { CompanyManagement } from "@/components/company-management";
 import { useAuth } from "@/hooks/use-auth";
@@ -26,7 +24,6 @@ export default function Settings() {
     GROQ_API_KEY: '',
   });
   const [loading, setLoading] = useState(true);
-  const [clearing, setClearing] = useState(false);
   const { toast } = useToast();
   
   // Only admins can access settings
@@ -62,49 +59,13 @@ export default function Settings() {
     }
   };
 
-  const handleClearNotifications = async () => {
-    setClearing(true);
-    try {
-      const res = await fetch("/api/notifications/clear", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
-      
-      // Invalidate notifications so UI refreshes immediately
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/emails'] });
-      
-      toast({
-        title: "Notifications cleared",
-        description: data?.message || "All notifications have been removed.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Failed to clear notifications",
-        description: error?.message || "Server error",
-        variant: "destructive",
-      });
-    } finally {
-      setClearing(false);
-    }
-  };
-
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold mb-2">Settings</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Manage users, companies, permissions, and view connection status
-          </p>
-        </div>
-        <Button 
-          onClick={handleClearNotifications} 
-          disabled={clearing} 
-          variant="destructive" 
-          className="text-sm sm:text-base"
-        >
-          <BellOff className="w-4 h-4 mr-2" />
-          {clearing ? "Clearing..." : "Clear Notifications"}
-        </Button>
+      <div>
+        <h1 className="text-xl sm:text-2xl font-semibold mb-2">Settings</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Manage users, companies, permissions, and view connection status
+        </p>
       </div>
 
       {loading ? (

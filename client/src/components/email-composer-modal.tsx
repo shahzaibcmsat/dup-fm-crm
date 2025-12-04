@@ -157,7 +157,7 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl" data-testid="modal-email-composer">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col" data-testid="modal-email-composer">
         <DialogHeader>
           <DialogTitle>Reply to {lead?.clientName}</DialogTitle>
           <DialogDescription>
@@ -165,7 +165,7 @@ export function EmailComposerModal({ lead, isOpen, onClose, onSend, lastReceived
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 overflow-y-auto flex-1 px-1">
           <div className="space-y-2">
             <Label htmlFor="to">To</Label>
             <Input 

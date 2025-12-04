@@ -360,16 +360,18 @@ export default function Leads() {
               )}
             </>
           )}
-          <Button 
-            onClick={() => {
-              setEditingLead(null);
-              setIsAddLeadOpen(true);
-            }}
-            className="bg-fmd-green hover:bg-fmd-green-dark"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Lead
-          </Button>
+          {selectedLeadIds.size === 0 && (
+            <Button 
+              onClick={() => {
+                setEditingLead(null);
+                setIsAddLeadOpen(true);
+              }}
+              className="bg-fmd-green hover:bg-fmd-green-dark"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Lead
+            </Button>
+          )}
         </div>
       </div>
 

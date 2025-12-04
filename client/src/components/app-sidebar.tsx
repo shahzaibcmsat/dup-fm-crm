@@ -134,7 +134,7 @@ export function AppSidebar() {
                           <div className="relative">
                             <item.icon className="w-5 h-5" />
                             {isFMDDashboard && unreadTotal > 0 && (
-                              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs leading-none rounded-full px-1.5 py-0.5 shadow font-bold">
+                              <span className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white text-xs leading-none rounded-full px-1.5 py-0.5 shadow font-bold z-10">
                                 {unreadTotal > 9 ? '9+' : unreadTotal}
                               </span>
                             )}

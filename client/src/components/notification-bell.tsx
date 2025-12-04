@@ -97,7 +97,7 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
           {unreadTotal > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold animate-pulse shadow-lg"
+              className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 h-5 min-w-[20px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold animate-pulse shadow-lg z-10"
             >
               {unreadTotal > 9 ? '9+' : unreadTotal}
             </Badge>
